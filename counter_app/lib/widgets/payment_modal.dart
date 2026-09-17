@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/billing_provider.dart';
 import '../models/order_model.dart';
+import '../theme/app_theme.dart';
 
 class PaymentModal extends StatefulWidget {
   final Function(OrderModel) onSuccess;
@@ -43,13 +44,13 @@ class _PaymentModalState extends State<PaymentModal> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
-        top: 20,
+        top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: SingleChildScrollView(
@@ -60,58 +61,76 @@ class _PaymentModalState extends State<PaymentModal> {
             // Handle bar
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: AppTheme.cardBorder,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text(
-                      'Cash Payment',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cashGreenLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.payments_outlined, color: AppTheme.cashGreen, size: 20),
                     ),
-                    SizedBox(width: 10),
-                    Icon(Icons.payments, color: Color(0xFF059669), size: 22),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Cash Payment',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textDark,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close, color: AppTheme.textSecondary, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Amount summary banner
+            // Amount summary banner (Burgundy hero card matching dashboard)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: AppTheme.primaryBurgundy,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Bill Amount',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                    'BILL AMOUNT',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
                   ),
                   Text(
                     '₹${billing.grandTotal.toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 26,
+                      fontSize: 24,
                       fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
                     ),
                   ),
                 ],
@@ -122,20 +141,23 @@ class _PaymentModalState extends State<PaymentModal> {
             // Cash Tender Input
             const Text(
               'Cash Received (₹)',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF334155)),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: AppTheme.textDark,
+              ),
             ),
             const SizedBox(height: 6),
             TextField(
               controller: _cashController,
               keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textDark),
               decoration: InputDecoration(
                 prefixText: '₹ ',
-                prefixStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.textDark),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: AppTheme.scaffoldBg,
               ),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               onChanged: (val) {
                 final parsed = double.tryParse(val) ?? 0.0;
                 billing.setCashTendered(parsed);
@@ -143,27 +165,28 @@ class _PaymentModalState extends State<PaymentModal> {
             ),
             const SizedBox(height: 10),
 
-            // Quick Note Buttons
+            // Quick Cash Denomination Chips
             Wrap(
               spacing: 8,
+              runSpacing: 6,
               children: [
-                _buildQuickNoteBtn('Exact', billing.grandTotal, billing),
-                _buildQuickNoteBtn('₹100', 100, billing),
-                _buildQuickNoteBtn('₹200', 200, billing),
-                _buildQuickNoteBtn('₹500', 500, billing),
-                _buildQuickNoteBtn('₹2000', 2000, billing),
+                _buildQuickNoteChip('Exact', billing.grandTotal, billing),
+                _buildQuickNoteChip('₹100', 100, billing),
+                _buildQuickNoteChip('₹200', 200, billing),
+                _buildQuickNoteChip('₹500', 500, billing),
+                _buildQuickNoteChip('₹2000', 2000, billing),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Change Due Banner
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: billing.changeDue > 0 ? Colors.green.shade50 : Colors.grey.shade100,
+                color: billing.changeDue > 0 ? AppTheme.cashGreenLight : AppTheme.scaffoldBg,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: billing.changeDue > 0 ? Colors.green.shade200 : Colors.grey.shade300,
+                  color: billing.changeDue > 0 ? const Color(0xFF86EFAC) : AppTheme.cardBorder,
                 ),
               ),
               child: Row(
@@ -172,31 +195,31 @@ class _PaymentModalState extends State<PaymentModal> {
                   Text(
                     'Change to Return:',
                     style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: billing.changeDue > 0 ? Colors.green.shade900 : Colors.grey.shade700,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      color: billing.changeDue > 0 ? AppTheme.cashGreen : AppTheme.textSecondary,
                     ),
                   ),
                   Text(
                     '₹${billing.changeDue.toStringAsFixed(2)}',
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: billing.changeDue > 0 ? Colors.green.shade800 : Colors.grey.shade800,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: billing.changeDue > 0 ? AppTheme.cashGreen : AppTheme.textDark,
+                      letterSpacing: -0.3,
                     ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             TextField(
               controller: _notesController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Order notes / Table number (Optional)',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
 
@@ -204,34 +227,37 @@ class _PaymentModalState extends State<PaymentModal> {
               const SizedBox(height: 10),
               Text(
                 _errorMessage!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: AppTheme.errorRed, fontSize: 12.5, fontWeight: FontWeight.w700),
               ),
             ],
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Submit Button
+            // Complete & Print Button
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 48,
               child: ElevatedButton(
                 onPressed: _isProcessing ? null : () => _submitOrder(billing),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: AppTheme.cashGreen,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 3,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isProcessing
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                      )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.check_circle_outline, size: 22),
+                          const Icon(Icons.print, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            'Complete & Print Receipt (₹${billing.grandTotal.toStringAsFixed(2)})',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            'Complete & Print (₹${billing.grandTotal.toStringAsFixed(2)})',
+                            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -243,14 +269,32 @@ class _PaymentModalState extends State<PaymentModal> {
     );
   }
 
-  Widget _buildQuickNoteBtn(String label, double amount, BillingProvider billing) {
-    return ActionChip(
-      label: Text(label),
-      backgroundColor: Colors.grey.shade100,
-      onPressed: () {
-        _cashController.text = amount.toStringAsFixed(0);
-        billing.setCashTendered(amount);
-      },
+  Widget _buildQuickNoteChip(String label, double amount, BillingProvider billing) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _cashController.text = amount.toStringAsFixed(0);
+          billing.setCashTendered(amount);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.scaffoldBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.cardBorder),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textDark,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

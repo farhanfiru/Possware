@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/billing_provider.dart';
+import '../theme/app_theme.dart';
 import 'payment_modal.dart';
 import 'split_payment_modal.dart';
 import 'order_receipt_dialog.dart';
@@ -11,84 +12,89 @@ class CartPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final billing = context.watch<BillingProvider>();
-    final theme = Theme.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // Header
+          // Header: Deep Burgundy matching Owner Dashboard
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryBurgundy,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.receipt_long, color: Colors.white, size: 22),
+                    const Icon(Icons.receipt_long, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
                     const Text(
                       'Current Bill',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: theme.primaryColor,
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '${billing.totalItemCount} items',
+                        '${billing.totalItemCount}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ],
                 ),
                 if (billing.cart.isNotEmpty)
-                  InkWell(
-                    onTap: () => _confirmClearCart(context, billing),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.delete_outline, color: Colors.redAccent, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            'Clear',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _confirmClearCart(context, billing),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.delete_outline, color: Colors.white, size: 15),
+                            SizedBox(width: 4),
+                            Text(
+                              'Clear',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -103,22 +109,33 @@ class CartPanel extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.shopping_bag_outlined, size: 56, color: Colors.grey.shade300),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.scaffoldBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 36,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
                         const SizedBox(height: 12),
-                        Text(
-                          'No items added yet',
+                        const Text(
+                          'Bill is empty',
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textDark,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Tap menu items on the left to build the bill',
+                        const Text(
+                          'Tap menu items to add to bill',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade400,
+                            color: AppTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -127,7 +144,7 @@ class CartPanel extends StatelessWidget {
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     itemCount: billing.cart.length,
-                    separatorBuilder: (_, __) => Divider(color: Colors.grey.shade100, height: 16),
+                    separatorBuilder: (_, __) => const Divider(color: AppTheme.cardBorder, height: 16),
                     itemBuilder: (context, index) {
                       final item = billing.cart[index];
                       return Row(
@@ -139,17 +156,18 @@ class CartPanel extends StatelessWidget {
                                 Text(
                                   item.menuItem.name,
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: Color(0xFF1E293B),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13.5,
+                                    color: AppTheme.textDark,
+                                    letterSpacing: -0.2,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '₹${item.menuItem.price.toStringAsFixed(2)} each',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
@@ -158,28 +176,35 @@ class CartPanel extends StatelessWidget {
                           // Quantity Stepper
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
+                              color: AppTheme.scaffoldBg,
                               borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.cardBorder),
                             ),
                             child: Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.remove, size: 16),
+                                  icon: const Icon(Icons.remove, size: 14),
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                  color: AppTheme.errorRed,
                                   onPressed: () => billing.decrementQuantity(item.menuItem.id),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 4),
                                   child: Text(
                                     '${item.quantity}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12.5,
+                                      color: AppTheme.textDark,
+                                    ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.add, size: 16),
+                                  icon: const Icon(Icons.add, size: 14),
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                  color: AppTheme.primaryBurgundy,
                                   onPressed: () => billing.incrementQuantity(item.menuItem.id),
                                 ),
                               ],
@@ -192,9 +217,9 @@ class CartPanel extends StatelessWidget {
                               '₹${item.lineTotal.toStringAsFixed(2)}',
                               textAlign: TextAlign.end,
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: Color(0xFF0F172A),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13.5,
+                                color: AppTheme.textDark,
                               ),
                             ),
                           ),
@@ -204,13 +229,12 @@ class CartPanel extends StatelessWidget {
                   ),
           ),
 
-          // Total & Checkout
+          // Total & Checkout Footer
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            decoration: const BoxDecoration(
+              color: AppTheme.scaffoldBg,
+              border: Border(top: BorderSide(color: AppTheme.cardBorder)),
             ),
             child: Column(
               children: [
@@ -219,91 +243,98 @@ class CartPanel extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _buildPaymentOption(
-                        context: context,
                         label: 'Cash',
-                        icon: Icons.money,
+                        icon: Icons.payments_outlined,
                         isSelected: billing.paymentMethod == 'cash',
+                        activeColor: AppTheme.cashGreen,
+                        activeBg: AppTheme.cashGreenLight,
                         onTap: () => billing.setPaymentMethod('cash'),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: _buildPaymentOption(
-                        context: context,
                         label: 'GPay',
-                        icon: Icons.payment,
+                        icon: Icons.qr_code_2_outlined,
                         isSelected: billing.paymentMethod == 'gpay',
+                        activeColor: AppTheme.gpayBlue,
+                        activeBg: AppTheme.gpayBlueLight,
                         onTap: () => billing.setPaymentMethod('gpay'),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: _buildPaymentOption(
-                        context: context,
                         label: 'Split',
-                        icon: Icons.call_split,
+                        icon: Icons.call_split_outlined,
                         isSelected: billing.paymentMethod == 'split',
+                        activeColor: AppTheme.primaryBurgundy,
+                        activeBg: AppTheme.primarySubtle,
                         onTap: () => billing.setPaymentMethod('split'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Grand Total Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Grand Total',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                    Text(
-                      '₹${billing.grandTotal.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: theme.primaryColor,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
 
-                // Charge Button
+                // Grand Total Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    const Text(
+                      'Grand Total',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    Text(
+                      '₹${billing.grandTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textDark,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Primary Charge Action Button
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: billing.cart.isEmpty || billing.isProcessingOrder
                         ? null
                         : () => _handleChargeAction(context, billing),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: billing.paymentMethod == 'gpay'
-                          ? const Color(0xFF2563EB) // Blue for GPay
+                          ? AppTheme.gpayBlue
                           : (billing.paymentMethod == 'split'
-                              ? const Color(0xFF7C3AED) // Purple for Split
-                              : const Color(0xFF059669)), // Green for Cash
+                              ? AppTheme.primaryBurgundy
+                              : AppTheme.cashGreen),
                       foregroundColor: Colors.white,
-                      elevation: 2,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: billing.isProcessingOrder
                         ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
                           )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.print, size: 20),
+                              const Icon(Icons.print, size: 18),
                               const SizedBox(width: 8),
                               Text(
                                 billing.paymentMethod == 'split'
@@ -312,8 +343,8 @@ class CartPanel extends StatelessWidget {
                                         ? 'Charge GPay ₹${billing.grandTotal.toStringAsFixed(2)} & Print'
                                         : 'Charge Cash ₹${billing.grandTotal.toStringAsFixed(2)} & Print'),
                                 style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -329,44 +360,48 @@ class CartPanel extends StatelessWidget {
   }
 
   Widget _buildPaymentOption({
-    required BuildContext context,
     required String label,
     required IconData icon,
     required bool isSelected,
+    required Color activeColor,
+    required Color activeBg,
     required VoidCallback onTap,
   }) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? theme.primaryColor.withOpacity(0.12) : Colors.white,
-          border: Border.all(
-            color: isSelected ? theme.primaryColor : Colors.grey.shade300,
-            width: isSelected ? 1.5 : 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : AppTheme.surfaceWhite,
+            border: Border.all(
+              color: isSelected ? activeColor : AppTheme.cardBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+            borderRadius: BorderRadius.circular(10),
           ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? theme.primaryColor : Colors.grey.shade700,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? theme.primaryColor : Colors.grey.shade800,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? activeColor : AppTheme.textSecondary,
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? activeColor : AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -379,9 +414,15 @@ class CartPanel extends StatelessWidget {
         title: const Text('Clear Current Bill?'),
         content: const Text('This will remove all items from the current cart.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               billing.clearCart();
               Navigator.pop(ctx);
@@ -395,7 +436,6 @@ class CartPanel extends StatelessWidget {
 
   Future<void> _handleChargeAction(BuildContext context, BillingProvider billing) async {
     if (billing.paymentMethod == 'gpay') {
-      // 1-Tap Direct Checkout for GPay
       try {
         final order = await billing.processCheckout(autoPrint: true);
         if (order != null && context.mounted) {
@@ -407,12 +447,11 @@ class CartPanel extends StatelessWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating order: $e'), backgroundColor: Colors.redAccent),
+            SnackBar(content: Text('Error creating order: $e'), backgroundColor: AppTheme.errorRed),
           );
         }
       }
     } else if (billing.paymentMethod == 'split') {
-      // Split payment -> Open Split sheet
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -428,7 +467,6 @@ class CartPanel extends StatelessWidget {
         ),
       );
     } else {
-      // Cash payment -> Open Cash tender modal
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,

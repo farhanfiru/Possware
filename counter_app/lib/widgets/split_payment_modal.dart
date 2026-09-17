@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/billing_provider.dart';
 import '../models/order_model.dart';
+import '../theme/app_theme.dart';
 
 class SplitPaymentModal extends StatefulWidget {
   final Function(OrderModel) onSuccess;
@@ -55,13 +56,13 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
-        top: 20,
+        top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: SingleChildScrollView(
@@ -72,59 +73,84 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
             // Handle bar
             Center(
               child: Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: AppTheme.cardBorder,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text(
-                      'Split Payment',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primarySubtle,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.call_split_outlined, color: AppTheme.primaryBurgundy, size: 20),
                     ),
-                    SizedBox(width: 8),
-                    Icon(Icons.call_split, color: Color(0xFF7C3AED), size: 22),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Split Payment',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textDark,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close, color: AppTheme.textSecondary, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Amount summary banner
+            // Amount summary banner (Burgundy hero card matching dashboard)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: AppTheme.primaryBurgundy,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Total Bill:', style: TextStyle(color: Colors.white70, fontSize: 15)),
+                  const Text(
+                    'TOTAL BILL',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
                   Text(
                     '₹${total.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Split Breakdown Boxes
+            // Split Breakdown Boxes (Cash Portion & GPay Portion)
             Row(
               children: [
                 // Cash Portion Input
@@ -132,7 +158,7 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: AppTheme.cashGreenLight,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFA7F3D0)),
                     ),
@@ -141,9 +167,12 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.money, size: 16, color: Color(0xFF059669)),
+                            Icon(Icons.payments_outlined, size: 15, color: AppTheme.cashGreen),
                             SizedBox(width: 4),
-                            Text('Cash Given (₹)', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                            Text(
+                              'Cash Paid (₹)',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppTheme.cashGreen),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -158,7 +187,7 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                             filled: true,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textDark),
                           onChanged: (val) => _onCashPortionChanged(val, total),
                         ),
                       ],
@@ -171,7 +200,7 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: AppTheme.gpayBlueLight,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFBFDBFE)),
                     ),
@@ -180,9 +209,12 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.qr_code, size: 16, color: Color(0xFF2563EB)),
+                            Icon(Icons.qr_code_2_outlined, size: 15, color: AppTheme.gpayBlue),
                             SizedBox(width: 4),
-                            Text('Remaining on GPay', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8))),
+                            Text(
+                              'GPay Balance',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppTheme.gpayBlue),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -191,14 +223,14 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
                           ),
                           child: Row(
                             children: [
-                              const Text('₹ ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const Text('₹ ', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.gpayBlue)),
                               Text(
                                 _gpayPortion.toStringAsFixed(2),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1D4ED8)),
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.gpayBlue),
                               ),
                             ],
                           ),
@@ -209,49 +241,50 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Order Notes
             TextField(
               controller: _notesController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Order notes / Table number (Optional)',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
 
             if (_errorMessage != null) ...[
               const SizedBox(height: 8),
-              Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+              Text(_errorMessage!, style: const TextStyle(color: AppTheme.errorRed, fontSize: 12, fontWeight: FontWeight.w700)),
             ],
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Submit Button
+            // Charge Split Button
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 48,
               child: ElevatedButton(
                 onPressed: _isProcessing ? null : () => _submitSplitOrder(billing),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED), // Purple for Split
+                  backgroundColor: AppTheme.primaryBurgundy,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
                 ),
                 child: _isProcessing
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                      )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.check_circle_outline, size: 20),
+                          const Icon(Icons.print, size: 18),
                           const SizedBox(width: 8),
                           Text(
                             'Charge Split (₹${_cashPortion.toStringAsFixed(0)} Cash + ₹${_gpayPortion.toStringAsFixed(0)} GPay)',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),

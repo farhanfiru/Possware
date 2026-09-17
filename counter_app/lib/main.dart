@@ -3,22 +3,23 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/billing_provider.dart';
 import 'screens/pos_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Set preferred orientations
+  // Set preferred orientations for POS tablets & phones
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
     DeviceOrientation.portraitUp,
   ]);
 
-  runApp(const NayckoBillingApp());
+  runApp(const NeycoBillingApp());
 }
 
-class NayckoBillingApp extends StatelessWidget {
-  const NayckoBillingApp({super.key});
+class NeycoBillingApp extends StatelessWidget {
+  const NeycoBillingApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,23 +28,9 @@ class NayckoBillingApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BillingProvider()..init()),
       ],
       child: MaterialApp(
-        title: 'Neyco POS',
+        title: 'NEYCO POS',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0F172A), // Slate 900
-            primary: const Color(0xFF0F172A),
-            secondary: const Color(0xFF059669), // Emerald 600
-            surface: Colors.white,
-          ),
-          fontFamily: 'Roboto',
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            foregroundColor: Color(0xFF0F172A),
-            elevation: 0,
-          ),
-        ),
+        theme: AppTheme.theme,
         home: const PosScreen(),
       ),
     );

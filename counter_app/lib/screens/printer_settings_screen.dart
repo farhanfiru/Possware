@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart';
 import '../services/printer_service.dart';
-import '../providers/billing_provider.dart';
-import '../config/supabase_config.dart';
+import '../theme/app_theme.dart';
 
 class PrinterSettingsScreen extends StatefulWidget {
   const PrinterSettingsScreen({super.key});
@@ -46,19 +42,23 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final billing = context.watch<BillingProvider>();
     final isConnected = _printerService.isConnected;
     final currentDevice = _printerService.selectedDevice;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppTheme.scaffoldBg,
       appBar: AppBar(
-        title: const Text('Bluetooth Thermal Printer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        title: const Text('Bluetooth Thermal Printer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textDark)),
+        backgroundColor: AppTheme.surfaceWhite,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppTheme.cardBorder, height: 1),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: AppTheme.textDark),
             tooltip: 'Refresh Devices',
             onPressed: _requestPermissionsAndScan,
           ),
@@ -73,7 +73,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isConnected ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                color: isConnected ? AppTheme.cashGreenLight : AppTheme.errorRedLight,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isConnected ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA),
@@ -84,13 +84,13 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isConnected ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                      color: isConnected ? AppTheme.cashGreen : AppTheme.errorRed,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       isConnected ? Icons.print : Icons.print_disabled,
                       color: Colors.white,
-                      size: 24,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -101,9 +101,9 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                         Text(
                           isConnected ? 'Printer Connected' : 'Printer Disconnected',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isConnected ? const Color(0xFF065F46) : const Color(0xFF991B1B),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: isConnected ? AppTheme.cashGreen : AppTheme.errorRed,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -113,7 +113,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                               : 'Select a paired ESC/POS thermal printer below',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isConnected ? const Color(0xFF047857) : const Color(0xFFB91C1C),
+                            color: isConnected ? AppTheme.cashGreen : AppTheme.errorRed,
                           ),
                         ),
                       ],
@@ -126,8 +126,8 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                         setState(() {});
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        side: const BorderSide(color: Colors.redAccent),
+                        foregroundColor: AppTheme.errorRed,
+                        side: const BorderSide(color: AppTheme.errorRed),
                       ),
                       child: const Text('Disconnect'),
                     ),
@@ -139,20 +139,21 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
             // Paper Size Setting
             const Text(
               'Paper Width Settings',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTheme.textDark),
             ),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                color: AppTheme.surfaceWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.cardBorder),
               ),
               child: Column(
                 children: [
                   RadioListTile<PaperSizeOption>(
-                    title: const Text('58mm Thermal Paper (2 Inch / 32 Columns)'),
-                    subtitle: const Text('Standard portable / handheld Bluetooth printers'),
+                    activeColor: AppTheme.primaryBurgundy,
+                    title: const Text('58mm Thermal Paper (2 Inch / 32 Columns)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    subtitle: const Text('Standard portable / handheld Bluetooth printers', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     value: PaperSizeOption.mm58,
                     groupValue: _printerService.paperSize,
                     onChanged: (val) async {
@@ -162,10 +163,11 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                       }
                     },
                   ),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: AppTheme.cardBorder),
                   RadioListTile<PaperSizeOption>(
-                    title: const Text('80mm Thermal Paper (3 Inch / 48 Columns)'),
-                    subtitle: const Text('Standard desktop restaurant counter POS printers'),
+                    activeColor: AppTheme.primaryBurgundy,
+                    title: const Text('80mm Thermal Paper (3 Inch / 48 Columns)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    subtitle: const Text('Standard desktop restaurant counter POS printers', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                     value: PaperSizeOption.mm80,
                     groupValue: _printerService.paperSize,
                     onChanged: (val) async {
@@ -187,14 +189,17 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: _isTesting ? null : _handleTestPrint,
-                  icon: const Icon(Icons.receipt),
+                  icon: const Icon(Icons.receipt, size: 18),
                   label: _isTesting
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Print Test Receipt', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                        )
+                      : const Text('Print Test Receipt', style: TextStyle(fontWeight: FontWeight.w700)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
+                    backgroundColor: AppTheme.primaryBurgundy,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -207,10 +212,10 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
               children: [
                 const Text(
                   'Paired Bluetooth Devices',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTheme.textDark),
                 ),
                 if (_isLoading)
-                  const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryBurgundy)),
               ],
             ),
             const SizedBox(height: 8),
@@ -220,20 +225,20 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                 padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  color: AppTheme.surfaceWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.cardBorder),
                 ),
-                child: Column(
+                child: const Column(
                   children: [
-                    Icon(Icons.bluetooth_searching, size: 40, color: Colors.grey.shade400),
-                    const SizedBox(height: 8),
-                    const Text('No paired Bluetooth printers found.', style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    const Text(
+                    Icon(Icons.bluetooth_searching, size: 36, color: AppTheme.textMuted),
+                    SizedBox(height: 8),
+                    Text('No paired Bluetooth printers found', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textDark)),
+                    SizedBox(height: 4),
+                    Text(
                       'Please pair your ESC/POS thermal printer in Android Bluetooth Settings first, then tap Refresh.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -250,25 +255,25 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
                   return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.surfaceWhite,
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: isThisConnected ? const Color(0xFF10B981) : Colors.grey.shade200,
+                        color: isThisConnected ? AppTheme.cashGreen : AppTheme.cardBorder,
                         width: isThisConnected ? 1.5 : 1,
                       ),
                     ),
                     child: ListTile(
                       leading: Icon(
                         Icons.print,
-                        color: isThisConnected ? const Color(0xFF10B981) : Colors.grey.shade600,
+                        color: isThisConnected ? AppTheme.cashGreen : AppTheme.textSecondary,
                       ),
                       title: Text(
                         dev.name ?? 'Unknown Bluetooth Device',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textDark),
                       ),
                       subtitle: Text(
                         dev.address ?? 'No MAC Address',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                       trailing: ElevatedButton(
                         onPressed: isThisConnected
@@ -287,9 +292,8 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                                 }
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isThisConnected ? Colors.grey.shade200 : const Color(0xFF0F172A),
-                          foregroundColor: isThisConnected ? Colors.grey.shade600 : Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          backgroundColor: isThisConnected ? AppTheme.scaffoldBg : AppTheme.primaryBurgundy,
+                          foregroundColor: isThisConnected ? AppTheme.textMuted : Colors.white,
                         ),
                         child: Text(isThisConnected ? 'Connected' : 'Connect'),
                       ),

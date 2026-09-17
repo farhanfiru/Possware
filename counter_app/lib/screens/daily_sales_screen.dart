@@ -5,6 +5,7 @@ import '../models/order_model.dart';
 import '../services/supabase_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/order_receipt_dialog.dart';
+import '../theme/app_theme.dart';
 
 class DailySalesScreen extends StatefulWidget {
   const DailySalesScreen({super.key});
@@ -40,7 +41,6 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Load sales data error: $e');
       if (!mounted) return;
       setState(() {
         _summary = DailySalesSummary.empty(_selectedDate);
@@ -87,7 +87,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? 'Day summary printed successfully!' : 'Failed to print day summary.'),
-          backgroundColor: success ? const Color(0xFF10B981) : Colors.redAccent,
+          backgroundColor: success ? AppTheme.cashGreen : AppTheme.errorRed,
         ),
       );
     }
@@ -95,7 +95,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('EEE, dd MMM yyyy');
+    final dateFormat = DateFormat('EEEE, d MMMM yyyy');
     final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final totalSales = _summary?.totalSales ?? 0.0;
@@ -103,31 +103,38 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
     final gpayTotal = _summary?.gpayTotal ?? 0.0;
     final totalOrders = _summary?.totalOrders ?? 0;
 
-    final cashPercent = totalSales > 0 ? (cashTotal / totalSales) : 0.5;
-    final gpayPercent = totalSales > 0 ? (gpayTotal / totalSales) : 0.5;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppTheme.scaffoldBg,
       appBar: AppBar(
-        title: const Text('Sales & Revenue Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        title: const Text(
+          'Daily Sales & Revenue',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textDark, letterSpacing: -0.3),
+        ),
+        backgroundColor: AppTheme.surfaceWhite,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppTheme.cardBorder, height: 1),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: AppTheme.textDark),
             tooltip: 'Refresh',
             onPressed: _loadSalesData,
           ),
           IconButton(
             icon: _isPrinting
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.print),
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryBurgundy))
+                : const Icon(Icons.print, color: AppTheme.textDark),
             tooltip: 'Print Day Summary',
             onPressed: _handlePrintSummary,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(
+        color: AppTheme.primaryBurgundy,
         onRefresh: _loadSalesData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -135,43 +142,19 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!_supabaseService.isInitialized) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline, size: 18, color: Color(0xFFD97706)),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Showing Offline Demo Data. To load live sales from Supabase, enter your Anon Key in Settings (PIN: 9599).',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              // 1. Date Navigation Bar
+              // Date Navigation Selector
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.surfaceWhite,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: AppTheme.cardBorder),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.chevron_left),
+                      icon: const Icon(Icons.chevron_left, color: AppTheme.textDark),
                       onPressed: () => _changeDate(-1),
                     ),
                     InkWell(
@@ -181,18 +164,18 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 18, color: Color(0xFF0F172A)),
+                            const Icon(Icons.calendar_today, size: 16, color: AppTheme.primaryBurgundy),
                             const SizedBox(width: 8),
                             Text(
-                              isToday ? 'Today (${dateFormat.format(_selectedDate)})' : dateFormat.format(_selectedDate),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                              isToday ? 'Today, ${DateFormat('d MMM yyyy').format(_selectedDate)}' : dateFormat.format(_selectedDate),
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textDark),
                             ),
                           ],
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.chevron_right),
+                      icon: const Icon(Icons.chevron_right, color: AppTheme.textDark),
                       onPressed: isToday ? null : () => _changeDate(1),
                     ),
                   ],
@@ -203,26 +186,22 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
               if (_isLoading)
                 const Center(
                   child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(),
+                    padding: EdgeInsets.all(48),
+                    child: CircularProgressIndicator(color: AppTheme.primaryBurgundy),
                   ),
                 )
               else ...[
-                // 2. Primary KPI Banner: Grand Total Sales
+                // 1. Burgundy Hero Card (Exact Match to Owner Dashboard)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
+                    color: AppTheme.primaryBurgundy,
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
-                        blurRadius: 16,
+                        color: AppTheme.primaryBurgundy.withOpacity(0.25),
+                        blurRadius: 18,
                         offset: const Offset(0, 6),
                       ),
                     ],
@@ -230,69 +209,43 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'TOTAL REVENUE',
-                            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFF10B981)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.receipt_long, size: 14, color: Color(0xFF34D399)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$totalOrders Bills',
-                                  style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      Text(
+                        isToday ? "TODAY'S COLLECTION" : "COLLECTION FOR ${DateFormat('d MMMM yyyy').format(_selectedDate).toUpperCase()}",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.0,
+                          fontSize: 11.5,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '₹${totalSales.toStringAsFixed(2)}',
+                        '₹${totalSales.toStringAsFixed(0)}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 34,
+                          fontSize: 38,
                           fontWeight: FontWeight.w900,
+                          letterSpacing: -1,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
 
-                      // Visual ratio bar
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: SizedBox(
-                          height: 8,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: (cashPercent * 100).toInt().clamp(1, 100),
-                                child: Container(color: const Color(0xFF10B981)),
-                              ),
-                              Expanded(
-                                flex: (gpayPercent * 100).toInt().clamp(1, 100),
-                                child: Container(color: const Color(0xFF3B82F6)),
-                              ),
-                            ],
-                          ),
-                        ),
+                      // Sub-stats: Bills, Cash, GPay
+                      Row(
+                        children: [
+                          _buildCollectionSubStat('Bills', '$totalOrders'),
+                          const SizedBox(width: 24),
+                          _buildCollectionSubStat('Cash', '₹${cashTotal.toStringAsFixed(0)}'),
+                          const SizedBox(width: 24),
+                          _buildCollectionSubStat('GPay', '₹${gpayTotal.toStringAsFixed(0)}'),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
-                // 3. Side-by-Side Breakdown Cards: Cash vs GPay
+                // 2. Breakdown Cards: Cash vs GPay
                 Row(
                   children: [
                     // Cash Received Card
@@ -300,7 +253,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppTheme.surfaceWhite,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: const Color(0xFFA7F3D0)),
                           boxShadow: [
@@ -313,33 +266,34 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFECFDF5),
-                                    shape: BoxShape.circle,
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cashGreenLight,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Icon(Icons.money, color: Color(0xFF059669), size: 20),
+                                  child: const Icon(Icons.payments_outlined, color: AppTheme.cashGreen, size: 18),
                                 ),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Cash Drawer',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF065F46)),
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.cashGreen),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             Text(
                               '₹${cashTotal.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                fontSize: 22,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF065F46),
+                                color: AppTheme.textDark,
+                                letterSpacing: -0.3,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               '${_summary?.cashOrders ?? 0} direct cash bills',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                             ),
                           ],
                         ),
@@ -347,12 +301,12 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                     ),
                     const SizedBox(width: 12),
 
-                    // GPay (UPI) Received Card
+                    // GPay (UPI) Card
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppTheme.surfaceWhite,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: const Color(0xFFBFDBFE)),
                           boxShadow: [
@@ -365,33 +319,34 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFEFF6FF),
-                                    shape: BoxShape.circle,
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gpayBlueLight,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Icon(Icons.qr_code, color: Color(0xFF2563EB), size: 20),
+                                  child: const Icon(Icons.qr_code_2_outlined, color: AppTheme.gpayBlue, size: 18),
                                 ),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'GPay (UPI)',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1D4ED8)),
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.gpayBlue),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             Text(
                               '₹${gpayTotal.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                fontSize: 22,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF1D4ED8),
+                                color: AppTheme.textDark,
+                                letterSpacing: -0.3,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               '${_summary?.gpayOrders ?? 0} online bills',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                             ),
                           ],
                         ),
@@ -399,36 +354,35 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // 4. Print Day Summary Button
+                // 3. Print Day Summary Button
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: OutlinedButton.icon(
                     onPressed: _handlePrintSummary,
                     icon: const Icon(Icons.print, size: 18),
-                    label: const Text('Print Day Summary on Thermal Printer', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text('Print Day Summary on Thermal Printer', style: TextStyle(fontWeight: FontWeight.w700)),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0F172A),
-                      side: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      foregroundColor: AppTheme.primaryBurgundy,
+                      side: const BorderSide(color: AppTheme.primaryBurgundy, width: 1.5),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                // 5. Orders History List for Selected Date
+                // 4. Orders History Section
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       'Bills for Selected Date',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textDark, letterSpacing: -0.2),
                     ),
                     Text(
                       '${_orders.length} total',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                      style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -437,17 +391,20 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                 if (_orders.isEmpty)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(30),
+                    padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey.shade200),
+                      color: AppTheme.surfaceWhite,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.cardBorder),
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.receipt_long_outlined, size: 40, color: Colors.grey.shade400),
+                        const Icon(Icons.receipt_long_outlined, size: 36, color: AppTheme.textMuted),
                         const SizedBox(height: 8),
-                        const Text('No bills recorded for this date.', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Text(
+                          'No bills recorded for this date',
+                          style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textSecondary, fontSize: 13.5),
+                        ),
                       ],
                     ),
                   )
@@ -462,77 +419,83 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                       final timeFormat = DateFormat('hh:mm a');
 
                       String badgeText = order.paymentMethod.toUpperCase();
-                      Color badgeBg = const Color(0xFFECFDF5);
-                      Color badgeFg = const Color(0xFF065F46);
+                      Color badgeBg = AppTheme.cashGreenLight;
+                      Color badgeFg = AppTheme.cashGreen;
 
                       if (order.paymentMethod == 'gpay') {
                         badgeText = 'GPAY';
-                        badgeBg = const Color(0xFFEFF6FF);
-                        badgeFg = const Color(0xFF1D4ED8);
+                        badgeBg = AppTheme.gpayBlueLight;
+                        badgeFg = AppTheme.gpayBlue;
                       } else if (order.paymentMethod == 'split') {
                         badgeText = 'SPLIT';
-                        badgeBg = const Color(0xFFF5F3FF);
-                        badgeFg = const Color(0xFF7C3AED);
+                        badgeBg = AppTheme.primarySubtle;
+                        badgeFg = AppTheme.primaryBurgundy;
                       }
 
-                      return InkWell(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => OrderReceiptDialog(
-                              order: order,
-                              isViewingHistory: true,
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => OrderReceiptDialog(
+                                order: order,
+                                isViewingHistory: true,
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceWhite,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppTheme.cardBorder),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 6, offset: const Offset(0, 2)),
+                              ],
                             ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Bill #${order.id.substring(0, 8).toUpperCase()}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                            child: Row(
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Bill #${order.id.substring(0, 8).toUpperCase()}',
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppTheme.textDark),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      timeFormat.format(order.createdAt),
+                                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: badgeBg,
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    timeFormat.format(order.createdAt),
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  child: Text(
+                                    badgeText,
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: badgeFg),
                                   ),
-                                ],
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: badgeBg,
-                                  borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Text(
-                                  badgeText,
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeFg),
+                                const SizedBox(width: 14),
+                                Text(
+                                  '₹${order.total.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15.5,
+                                    color: AppTheme.textDark,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 14),
-                              Text(
-                                '₹${order.total.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                            ],
+                                const SizedBox(width: 6),
+                                const Icon(Icons.chevron_right, size: 18, color: AppTheme.textMuted),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -543,6 +506,23 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCollectionSubStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/billing_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/category_selector.dart';
 import '../widgets/menu_item_card.dart';
 import '../widgets/cart_panel.dart';
@@ -27,78 +28,100 @@ class _PosScreenState extends State<PosScreen> {
   @override
   Widget build(BuildContext context) {
     final billing = context.watch<BillingProvider>();
-    final theme = Theme.of(context);
     final isTablet = MediaQuery.of(context).size.width >= 800;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppTheme.scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: AppTheme.surfaceWhite,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppTheme.cardBorder, height: 1),
+        ),
         title: Row(
           children: [
+            // Branded "N" Burgundy Badge (matches Owner Dashboard)
             Container(
-              padding: const EdgeInsets.all(6),
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryBurgundy,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.point_of_sale, color: theme.primaryColor, size: 20),
+              child: const Center(
+                child: Text(
+                  'N',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    height: 1,
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Neyco POS',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            const SizedBox(width: 10),
+            const Text(
+              'NEYCO POS',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textDark,
+                letterSpacing: -0.3,
               ),
             ),
           ],
         ),
         actions: [
-          // Bluetooth Printer Status Indicator
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
-              );
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: billing.isPrinterConnected ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: billing.isPrinterConnected ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
+          // Bluetooth Thermal Printer Status Chip
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: billing.isPrinterConnected ? AppTheme.cashGreenLight : AppTheme.errorRedLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: billing.isPrinterConnected ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
+                    width: 1,
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    billing.isPrinterConnected ? Icons.print : Icons.print_disabled,
-                    size: 16,
-                    color: billing.isPrinterConnected ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    billing.isPrinterConnected ? 'Printer Ready' : 'No Printer',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: billing.isPrinterConnected ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                child: Row(
+                  children: [
+                    Icon(
+                      billing.isPrinterConnected ? Icons.print : Icons.print_disabled,
+                      size: 14,
+                      color: billing.isPrinterConnected ? AppTheme.cashGreen : AppTheme.errorRed,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 5),
+                    Text(
+                      billing.isPrinterConnected ? 'Printer Ready' : 'No Printer',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: billing.isPrinterConnected ? AppTheme.cashGreen : AppTheme.errorRed,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // Daily Sales Report
+          // Daily Sales Report Navigation
           IconButton(
-            icon: const Icon(Icons.analytics_outlined, color: Color(0xFF0F172A)),
+            icon: const Icon(Icons.bar_chart_rounded, color: AppTheme.textDark, size: 22),
             tooltip: 'Sales Report',
             onPressed: () {
               Navigator.push(
@@ -108,9 +131,9 @@ class _PosScreenState extends State<PosScreen> {
             },
           ),
 
-          // App / Supabase Settings
+          // Settings
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Color(0xFF475569)),
+            icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary, size: 22),
             tooltip: 'Settings',
             onPressed: () {
               Navigator.push(
@@ -119,7 +142,7 @@ class _PosScreenState extends State<PosScreen> {
               );
             },
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
         ],
       ),
       body: isTablet
@@ -144,7 +167,7 @@ class _PosScreenState extends State<PosScreen> {
                 selectedCategory: billing.selectedCategory,
                 onSelectCategory: billing.selectCategory,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Expanded(
                 child: _buildMenuGrid(context, billing, crossAxisCount: 3),
               ),
@@ -156,7 +179,7 @@ class _PosScreenState extends State<PosScreen> {
         const SizedBox(
           width: 380,
           child: Padding(
-            padding: EdgeInsets.only(top: 12, right: 12, bottom: 12),
+            padding: EdgeInsets.only(top: 14, right: 14, bottom: 14),
             child: CartPanel(),
           ),
         ),
@@ -166,8 +189,6 @@ class _PosScreenState extends State<PosScreen> {
 
   // Mobile Phone Layout with Bottom Sheet Cart
   Widget _buildMobileLayout(BuildContext context, BillingProvider billing) {
-    final theme = Theme.of(context);
-
     return Column(
       children: [
         _buildSearchBar(billing),
@@ -185,10 +206,11 @@ class _PosScreenState extends State<PosScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceWhite,
+              border: const Border(top: BorderSide(color: AppTheme.cardBorder)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withOpacity(0.06),
                   blurRadius: 10,
                   offset: const Offset(0, -3),
                 ),
@@ -202,14 +224,19 @@ class _PosScreenState extends State<PosScreen> {
                   children: [
                     Text(
                       '${billing.totalItemCount} Items',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     Text(
                       '₹${billing.grandTotal.toStringAsFixed(2)}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
-                        color: theme.primaryColor,
+                        color: AppTheme.textDark,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
@@ -227,12 +254,12 @@ class _PosScreenState extends State<PosScreen> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.shopping_cart_checkout),
+                  icon: const Icon(Icons.shopping_cart_checkout, size: 18),
                   label: const Text('View Bill & Pay'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF059669),
+                    backgroundColor: AppTheme.primaryBurgundy,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -245,15 +272,17 @@ class _PosScreenState extends State<PosScreen> {
 
   Widget _buildSearchBar(BillingProvider billing) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: TextField(
         controller: _searchController,
+        style: const TextStyle(fontSize: 14, color: AppTheme.textDark),
         decoration: InputDecoration(
-          hintText: 'Search menu items...',
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          hintText: 'Search dishes, drinks, or items...',
+          hintStyle: const TextStyle(fontSize: 13.5, color: AppTheme.textMuted),
+          prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
+                  icon: const Icon(Icons.clear, size: 18, color: AppTheme.textSecondary),
                   onPressed: () {
                     _searchController.clear();
                     billing.setSearchQuery('');
@@ -261,16 +290,8 @@ class _PosScreenState extends State<PosScreen> {
                 )
               : null,
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppTheme.surfaceWhite,
           contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade200),
-          ),
         ),
         onChanged: billing.setSearchQuery,
       ),
@@ -279,7 +300,9 @@ class _PosScreenState extends State<PosScreen> {
 
   Widget _buildMenuGrid(BuildContext context, BillingProvider billing, {required int crossAxisCount}) {
     if (billing.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryBurgundy),
+      );
     }
 
     if (billing.menuItems.isEmpty) {
@@ -287,11 +310,18 @@ class _PosScreenState extends State<PosScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.restaurant_menu, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 8),
-            Text(
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: AppTheme.surfaceWhite,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.restaurant_menu, size: 40, color: AppTheme.textMuted),
+            ),
+            const SizedBox(height: 12),
+            const Text(
               'No menu items found',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 16, fontWeight: FontWeight.w500),
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -299,14 +329,15 @@ class _PosScreenState extends State<PosScreen> {
     }
 
     return RefreshIndicator(
+      color: AppTheme.primaryBurgundy,
       onRefresh: billing.fetchMenu,
       child: GridView.builder(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 1.35,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.32,
         ),
         itemCount: billing.menuItems.length,
         itemBuilder: (context, index) {

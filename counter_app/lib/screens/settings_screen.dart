@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../config/supabase_config.dart';
 import '../providers/billing_provider.dart';
 import '../services/supabase_service.dart';
+import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -66,12 +67,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(
             children: [
-              Icon(Icons.lock_outline, color: Color(0xFF0F172A), size: 24),
+              Icon(Icons.lock_outline, color: AppTheme.primaryBurgundy, size: 22),
               SizedBox(width: 8),
-              Text('Admin Security PIN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Admin Security PIN', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textDark)),
             ],
           ),
           content: Column(
@@ -80,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               const Text(
                 'Enter Admin PIN to reveal and edit Supabase backend credentials:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -93,8 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   hintText: 'Enter 4-digit PIN',
                   errorText: errorText,
                   counterText: '',
-                  prefixIcon: const Icon(Icons.key),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  prefixIcon: const Icon(Icons.key, color: AppTheme.primaryBurgundy),
                 ),
                 onSubmitted: (val) {
                   if (val == _adminPin) {
@@ -110,13 +110,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
+                backgroundColor: AppTheme.primaryBurgundy,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () {
                 if (pinController.text.trim() == _adminPin) {
@@ -138,16 +137,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryBurgundy)),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppTheme.scaffoldBg,
       appBar: AppBar(
-        title: const Text('Counter Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        title: const Text('Counter Settings', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textDark)),
+        backgroundColor: AppTheme.surfaceWhite,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppTheme.cardBorder, height: 1),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -156,18 +160,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Supabase Backend Settings (Protected by PIN 9599)
+              // 1. Supabase Backend Settings (PIN protected)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Supabase Backend Credentials',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTheme.textDark),
                   ),
                   if (_isSupabaseUnlocked)
                     TextButton.icon(
-                      icon: const Icon(Icons.lock, size: 16),
-                      label: const Text('Lock'),
+                      icon: const Icon(Icons.lock, size: 15, color: AppTheme.primaryBurgundy),
+                      label: const Text('Lock', style: TextStyle(color: AppTheme.primaryBurgundy, fontWeight: FontWeight.w700)),
                       onPressed: () => setState(() => _isSupabaseUnlocked = false),
                     ),
                 ],
@@ -179,57 +183,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : '🔒 Protected section. Enter Admin PIN to view and modify.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: _isSupabaseUnlocked ? const Color(0xFF059669) : Colors.grey,
-                  fontWeight: _isSupabaseUnlocked ? FontWeight.bold : FontWeight.normal,
+                  color: _isSupabaseUnlocked ? AppTheme.cashGreen : AppTheme.textSecondary,
+                  fontWeight: _isSupabaseUnlocked ? FontWeight.w700 : FontWeight.normal,
                 ),
               ),
               const SizedBox(height: 12),
 
               if (!_isSupabaseUnlocked)
-                // Locked Banner
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: AppTheme.surfaceWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.cardBorder),
                   ),
                   child: Column(
                     children: [
-                      Icon(Icons.lock_person_outlined, size: 40, color: Colors.grey.shade500),
+                      const Icon(Icons.lock_person_outlined, size: 36, color: AppTheme.textMuted),
                       const SizedBox(height: 10),
                       const Text(
                         'Credentials Locked',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textDark),
                       ),
                       const SizedBox(height: 4),
                       const Text(
                         'Project URL and Anon API Key are hidden.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                       const SizedBox(height: 14),
                       ElevatedButton.icon(
                         onPressed: _promptForAdminPassword,
-                        icon: const Icon(Icons.key, size: 18),
-                        label: const Text('Unlock with PIN'),
+                        icon: const Icon(Icons.key, size: 16),
+                        label: const Text('Unlock with PIN (9599)'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
+                          backgroundColor: AppTheme.primaryBurgundy,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
                   ),
                 )
               else
-                // Unlocked Inputs
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+                    color: AppTheme.surfaceWhite,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.cashGreen, width: 1.5),
                   ),
                   child: Column(
                     children: [
@@ -238,8 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Supabase Project URL',
                           hintText: 'https://xyzcompany.supabase.co',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.cloud_outlined),
+                          prefixIcon: Icon(Icons.cloud_outlined, color: AppTheme.primaryBurgundy),
                         ),
                         validator: (val) => val == null || val.trim().isEmpty ? 'URL is required' : null,
                       ),
@@ -250,8 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Supabase Anon Public Key',
                           hintText: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.key_outlined),
+                          prefixIcon: Icon(Icons.key_outlined, color: AppTheme.primaryBurgundy),
                         ),
                         validator: (val) => val == null || val.trim().isEmpty ? 'Anon Key is required' : null,
                       ),
@@ -263,21 +262,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // 2. Receipt Header Customization
               const Text(
                 'Receipt Header & Business Info',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTheme.textDark),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Information printed at the top of every customer thermal receipt',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 12),
 
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  color: AppTheme.surfaceWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.cardBorder),
                 ),
                 child: Column(
                   children: [
@@ -285,9 +284,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       controller: _nameController,
                       decoration: const InputDecoration(
                         labelText: 'Restaurant Name',
-                        hintText: 'Delicious Bites Cafe',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.storefront_outlined),
+                        hintText: 'Neyco Cafe & Restro',
+                        prefixIcon: Icon(Icons.storefront_outlined, color: AppTheme.primaryBurgundy),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -296,8 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Restaurant Address / Branch',
                         hintText: '123 Food Street, Downtown',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.location_on_outlined),
+                        prefixIcon: Icon(Icons.location_on_outlined, color: AppTheme.primaryBurgundy),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -306,8 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Contact Phone Number',
                         hintText: '+91 98765 43210',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.phone_outlined),
+                        prefixIcon: Icon(Icons.phone_outlined, color: AppTheme.primaryBurgundy),
                       ),
                     ),
                   ],
@@ -318,17 +314,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Save Button
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 48,
                 child: ElevatedButton.icon(
                   onPressed: _isSaving ? null : _saveSettings,
-                  icon: const Icon(Icons.save),
+                  icon: const Icon(Icons.save, size: 18),
                   label: _isSaving
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                        )
+                      : const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
+                    backgroundColor: AppTheme.primaryBurgundy,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -356,9 +355,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (_isSupabaseUnlocked) {
-      final success = await SupabaseService().reinitialize(url, anonKey);
-      final billing = context.read<BillingProvider>();
-      await billing.fetchMenu();
+      await SupabaseService().reinitialize(url, anonKey);
+      if (mounted) {
+        final billing = context.read<BillingProvider>();
+        await billing.fetchMenu();
+      }
     }
 
     setState(() => _isSaving = false);
@@ -367,7 +368,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Settings saved successfully!'),
-          backgroundColor: Color(0xFF10B981),
+          backgroundColor: AppTheme.cashGreen,
         ),
       );
       Navigator.pop(context);
