@@ -221,6 +221,9 @@ class SupabaseService {
     List<OrderModel> onlineOrders = [];
     bool onlineSuccess = false;
 
+    // NEYCO trading shift boundary is 3:00 AM (subtract 3 hours for business date)
+    final targetBiz = targetDate.toLocal().subtract(const Duration(hours: 3));
+
     if (isInitialized) {
       try {
         final res = await client
@@ -236,10 +239,10 @@ class SupabaseService {
           final rawCreatedAt = orderJson['created_at']?.toString();
           if (rawCreatedAt == null) continue;
 
-          final orderLocalTime = DateTime.parse(rawCreatedAt).toLocal();
-          if (orderLocalTime.year == targetDate.year &&
-              orderLocalTime.month == targetDate.month &&
-              orderLocalTime.day == targetDate.day) {
+          final orderBiz = DateTime.parse(rawCreatedAt).toLocal().subtract(const Duration(hours: 3));
+          if (orderBiz.year == targetBiz.year &&
+              orderBiz.month == targetBiz.month &&
+              orderBiz.day == targetBiz.day) {
             final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
             final items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
             onlineOrders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));

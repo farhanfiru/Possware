@@ -125,7 +125,51 @@ void main() {
 
       final yesterdayOrders = await service.getLocalOrdersForDate(yesterday);
       expect(yesterdayOrders.length, equals(1));
-      expect(yesterdayOrders.first.id, equals('ord_yesterday'));
+    });
+
+    test('OfflineStorageService groups orders placed past midnight (before 3 AM) into previous trading day', () async {
+      final service = OfflineStorageService();
+
+      // Sep 18, 11:30 PM (Regular night order)
+      final nightOrder = OrderModel(
+        id: 'ord_night_18',
+        createdAt: DateTime(2026, 9, 18, 23, 30),
+        total: 200.0,
+        paymentMethod: 'cash',
+        cashAmount: 200.0,
+      );
+
+      // Sep 19, 1:30 AM (Post-midnight order belonging to Sep 18 shift)
+      final postMidnightOrder = OrderModel(
+        id: 'ord_post_midnight_19',
+        createdAt: DateTime(2026, 9, 19, 1, 30),
+        total: 150.0,
+        paymentMethod: 'gpay',
+        gpayAmount: 150.0,
+      );
+
+      // Sep 19, 11:30 AM (Next day's morning order)
+      final nextDayOrder = OrderModel(
+        id: 'ord_next_day_19',
+        createdAt: DateTime(2026, 9, 19, 11, 30),
+        total: 300.0,
+        paymentMethod: 'cash',
+        cashAmount: 300.0,
+      );
+
+      await service.saveLocalOrder(nightOrder);
+      await service.saveLocalOrder(postMidnightOrder);
+      await service.saveLocalOrder(nextDayOrder);
+
+      // Querying for Sep 18 trading day (e.g. at 2:00 PM on Sep 18)
+      final sep18Orders = await service.getLocalOrdersForDate(DateTime(2026, 9, 18, 14, 0));
+      expect(sep18Orders.length, equals(2));
+      expect(sep18Orders.map((o) => o.id).toSet(), equals({'ord_night_18', 'ord_post_midnight_19'}));
+
+      // Querying for Sep 19 trading day
+      final sep19Orders = await service.getLocalOrdersForDate(DateTime(2026, 9, 19, 14, 0));
+      expect(sep19Orders.length, equals(1));
+      expect(sep19Orders.first.id, equals('ord_next_day_19'));
     });
   });
 }

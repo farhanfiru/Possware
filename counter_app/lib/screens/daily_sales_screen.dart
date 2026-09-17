@@ -18,7 +18,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
   final SupabaseService _supabaseService = SupabaseService();
   final PrinterService _printerService = PrinterService();
 
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now().subtract(const Duration(hours: 3));
   DailySalesSummary? _summary;
   List<OrderModel> _orders = [];
   bool _isLoading = true;
@@ -63,11 +63,12 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
   }
 
   Future<void> _pickDate() async {
+    final businessToday = DateTime.now().subtract(const Duration(hours: 3));
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: businessToday.add(const Duration(days: 1)),
     );
     if (picked != null && (picked.year != _selectedDate.year || picked.month != _selectedDate.month || picked.day != _selectedDate.day)) {
       setState(() => _selectedDate = picked);
@@ -101,7 +102,8 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('EEE, d MMM yyyy');
-    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final businessToday = DateTime.now().subtract(const Duration(hours: 3));
+    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(businessToday);
 
     final totalSales = _summary?.totalSales ?? 0.0;
     final cashTotal = _summary?.cashTotal ?? 0.0;

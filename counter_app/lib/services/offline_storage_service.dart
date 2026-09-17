@@ -143,11 +143,14 @@ class OfflineStorageService {
 
   Future<List<OrderModel>> getLocalOrdersForDate(DateTime targetDate) async {
     final allOrders = await getAllLocalOrders();
+    // NEYCO trading shift boundary is 3:00 AM (subtract 3 hours for business date)
+    final targetBiz = targetDate.toLocal().subtract(const Duration(hours: 3));
+
     return allOrders.where((o) {
-      final local = o.createdAt.toLocal();
-      return local.year == targetDate.year &&
-          local.month == targetDate.month &&
-          local.day == targetDate.day;
+      final orderBiz = o.createdAt.toLocal().subtract(const Duration(hours: 3));
+      return orderBiz.year == targetBiz.year &&
+          orderBiz.month == targetBiz.month &&
+          orderBiz.day == targetBiz.day;
     }).toList();
   }
 }
