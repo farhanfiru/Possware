@@ -33,6 +33,11 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
   Future<void> _loadSalesData() async {
     setState(() => _isLoading = true);
     try {
+      // Attempt background sync of any pending offline orders
+      try {
+        await _supabaseService.syncOfflineOrders();
+      } catch (_) {}
+
       final data = await _supabaseService.fetchDailyData(_selectedDate);
       if (!mounted) return;
       setState(() {
@@ -95,7 +100,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('EEEE, d MMMM yyyy');
+    final dateFormat = DateFormat('EEE, d MMM yyyy');
     final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final totalSales = _summary?.totalSales ?? 0.0;
@@ -142,35 +147,42 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date Navigation Selector
+              // Date Navigation Selector (Overflow-safe on all screens)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceWhite,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppTheme.cardBorder),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.chevron_left, color: AppTheme.textDark),
                       onPressed: () => _changeDate(-1),
                     ),
-                    InkWell(
-                      onTap: _pickDate,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today, size: 16, color: AppTheme.primaryBurgundy),
-                            const SizedBox(width: 8),
-                            Text(
-                              isToday ? 'Today, ${DateFormat('d MMM yyyy').format(_selectedDate)}' : dateFormat.format(_selectedDate),
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textDark),
-                            ),
-                          ],
+                    Expanded(
+                      child: InkWell(
+                        onTap: _pickDate,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.calendar_today, size: 15, color: AppTheme.primaryBurgundy),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  isToday ? 'Today, ${DateFormat('d MMM yyyy').format(_selectedDate)}' : dateFormat.format(_selectedDate),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppTheme.textDark),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

@@ -5,12 +5,14 @@ import '../models/cart_item.dart';
 import '../models/order_model.dart';
 import '../models/sales_summary.dart';
 import '../config/supabase_config.dart';
+import 'offline_storage_service.dart';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
+  final OfflineStorageService _offlineService = OfflineStorageService();
   SupabaseClient? _client;
   bool _isInitialized = false;
 
@@ -55,27 +57,41 @@ class SupabaseService {
     }
   }
 
-  // Fetch all active menu items
+  // Fetch all active menu items with offline local cache fallback
   Future<List<MenuItem>> fetchMenuItems() async {
     try {
-      if (!isInitialized) return getMockMenuItems();
+      if (!_isInitialized || _client == null) {
+        await initialize();
+      }
+      if (isInitialized) {
+        final response = await client
+            .from('menu_items')
+            .select()
+            .order('category', ascending: true)
+            .order('name', ascending: true)
+            .timeout(const Duration(seconds: 6));
 
-      final response = await client
-          .from('menu_items')
-          .select()
-          .order('category', ascending: true)
-          .order('name', ascending: true)
-          .timeout(const Duration(seconds: 15));
-
-      final data = response as List<dynamic>;
-      return data.map((item) => MenuItem.fromJson(item as Map<String, dynamic>)).toList();
+        final data = response as List<dynamic>;
+        final items = data.map((item) => MenuItem.fromJson(item as Map<String, dynamic>)).toList();
+        if (items.isNotEmpty) {
+          await _offlineService.saveCachedMenuItems(items);
+          return items;
+        }
+      }
     } catch (e) {
-      print('Error fetching menu items: $e');
-      return getMockMenuItems();
+      print('Notice fetching menu items online: $e. Falling back to local cache.');
     }
+
+    // Fallback: local cached menu
+    final cached = await _offlineService.getCachedMenuItems();
+    if (cached.isNotEmpty) {
+      return cached;
+    }
+
+    return getMockMenuItems();
   }
 
-  // Place a completed order with order items
+  // Place a completed order with order items (Safe for offline & online)
   Future<OrderModel?> createOrder({
     required List<CartItem> cartItems,
     required String paymentMethod, // 'cash', 'gpay', or 'split'
@@ -114,141 +130,184 @@ class SupabaseService {
       }).toList(),
     );
 
+    // 1. Always save to local order history first
+    await _offlineService.saveLocalOrder(order);
+
     if (!isInitialized) {
+      await _offlineService.saveOfflineOrder(order);
       return order;
     }
 
     try {
-      // 1. Insert order record
-      await client.from('orders').insert(order.toInsertJson());
+      // 2. Try inserting to Supabase with timeout
+      await client.from('orders').insert(order.toInsertJson()).timeout(const Duration(seconds: 4));
 
-      // 2. Insert line items
-      final itemsJson = order.items.map((item) => item.toInsertJson()).toList();
-      await client.from('order_items').insert(itemsJson);
+      try {
+        final itemsJson = order.items.map((item) => item.toInsertJson()).toList();
+        if (itemsJson.isNotEmpty) {
+          await client.from('order_items').insert(itemsJson).timeout(const Duration(seconds: 4));
+        }
+      } catch (itemErr) {
+        print('Order items insert notice (e.g. non-UUID or schema constraint): $itemErr');
+        // Fallback: Try inserting items without menuItemId
+        try {
+          final strippedItems = order.items.map((item) => {
+            'order_id': item.orderId,
+            'name': item.name,
+            'price': item.price,
+            'qty': item.qty,
+          }).toList();
+          await client.from('order_items').insert(strippedItems).timeout(const Duration(seconds: 3));
+        } catch (_) {}
+      }
 
       return order;
     } catch (e) {
-      print('Error creating order in Supabase: $e');
-      rethrow;
+      print('Supabase error during checkout: $e. Saved to offline sync queue.');
+      // 3. Queue offline order for later auto-sync
+      await _offlineService.saveOfflineOrder(order);
+      // Return the order normally so UI checkout and Bluetooth printing continue seamlessly!
+      return order;
     }
   }
 
-  // Fetch all orders and calculate metrics for a specific calendar date
-  Future<Map<String, dynamic>> fetchDailyData(DateTime targetDate) async {
-    if (!isInitialized) {
-      return _getMockDailyData(targetDate);
-    }
-
-    final String dateStr = "${targetDate.year.toString().padLeft(4, '0')}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
-
+  // Sync queued offline orders when connection is available
+  Future<int> syncOfflineOrders() async {
     try {
-      Map<String, dynamic>? viewRes;
-      List<dynamic> list = [];
-
-      try {
-        final res = await client
-            .from('daily_sales')
-            .select()
-            .eq('sale_date', dateStr)
-            .maybeSingle()
-            .timeout(const Duration(seconds: 4));
-        if (res != null) {
-          viewRes = Map<String, dynamic>.from(res as Map);
-        }
-      } catch (e) {
-        print('daily_sales view notice: $e');
+      if (!_isInitialized || _client == null) {
+        final ok = await initialize();
+        if (!ok) return 0;
       }
 
+      final queuedOrders = await _offlineService.getQueuedOfflineOrders();
+      if (queuedOrders.isEmpty) return 0;
+
+      int syncedCount = 0;
+      for (final order in queuedOrders) {
+        try {
+          await client.from('orders').upsert(order.toInsertJson()).timeout(const Duration(seconds: 5));
+          try {
+            final itemsJson = order.items.map((item) => item.toInsertJson()).toList();
+            if (itemsJson.isNotEmpty) {
+              await client.from('order_items').upsert(itemsJson).timeout(const Duration(seconds: 5));
+            }
+          } catch (itemErr) {
+            final strippedItems = order.items.map((item) => {
+              'order_id': item.orderId,
+              'name': item.name,
+              'price': item.price,
+              'qty': item.qty,
+            }).toList();
+            try {
+              await client.from('order_items').upsert(strippedItems).timeout(const Duration(seconds: 3));
+            } catch (_) {}
+          }
+          await _offlineService.removeOfflineOrder(order.id);
+          syncedCount++;
+        } catch (e) {
+          print('Failed syncing offline order ${order.id}: $e');
+          break; // Stop loop if network is still down
+        }
+      }
+      return syncedCount;
+    } catch (e) {
+      print('Error in syncOfflineOrders: $e');
+      return 0;
+    }
+  }
+
+  // Fetch all orders and calculate metrics for a specific calendar date (Merging online + offline)
+  Future<Map<String, dynamic>> fetchDailyData(DateTime targetDate) async {
+    List<OrderModel> onlineOrders = [];
+    bool onlineSuccess = false;
+
+    if (isInitialized) {
       try {
         final res = await client
             .from('orders')
             .select('*, order_items(*)')
             .eq('status', 'completed')
             .order('created_at', ascending: false)
-            .limit(300)
-            .timeout(const Duration(seconds: 4));
-        list = (res as List<dynamic>?) ?? [];
-      } catch (e) {
-        print('orders table notice: $e');
-      }
+            .limit(400)
+            .timeout(const Duration(seconds: 5));
 
-      DailySalesSummary? summary;
-      if (viewRes != null) {
-        summary = DailySalesSummary(
-          date: targetDate,
-          totalOrders: (viewRes['num_orders'] as num?)?.toInt() ?? 0,
-          totalSales: (viewRes['total_sales'] as num?)?.toDouble() ?? 0.0,
-          cashTotal: (viewRes['cash_total'] as num?)?.toDouble() ?? 0.0,
-          gpayTotal: (viewRes['gpay_total'] as num?)?.toDouble() ?? 0.0,
-          cashOrders: (viewRes['cash_orders'] as num?)?.toInt() ?? 0,
-          gpayOrders: (viewRes['gpay_orders'] as num?)?.toInt() ?? 0,
-          splitOrders: (viewRes['split_orders'] as num?)?.toInt() ?? 0,
-        );
-      }
+        final list = (res as List<dynamic>?) ?? [];
+        for (final orderJson in list) {
+          final rawCreatedAt = orderJson['created_at']?.toString();
+          if (rawCreatedAt == null) continue;
 
-      int totalOrders = 0;
-      double totalSales = 0.0;
-      double cashTotal = 0.0;
-      double gpayTotal = 0.0;
-      int cashOrders = 0;
-      int gpayOrders = 0;
-      int splitOrders = 0;
-
-      final List<OrderModel> orders = [];
-
-      for (final orderJson in list) {
-        final rawCreatedAt = orderJson['created_at']?.toString();
-        if (rawCreatedAt == null) continue;
-
-        final orderLocalTime = DateTime.parse(rawCreatedAt).toLocal();
-
-        if (orderLocalTime.year == targetDate.year &&
-            orderLocalTime.month == targetDate.month &&
-            orderLocalTime.day == targetDate.day) {
-          
-          final total = (orderJson['total'] as num?)?.toDouble() ?? 0.0;
-          final method = orderJson['payment_method'] as String? ?? 'cash';
-          final cash = (orderJson['cash_amount'] as num?)?.toDouble() ?? (method == 'cash' ? total : 0.0);
-          final gpay = (orderJson['gpay_amount'] as num?)?.toDouble() ?? (method == 'gpay' ? total : 0.0);
-
-          totalOrders++;
-          totalSales += total;
-          cashTotal += cash;
-          gpayTotal += gpay;
-
-          if (method == 'cash') cashOrders++;
-          if (method == 'gpay') gpayOrders++;
-          if (method == 'split') splitOrders++;
-
-          final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
-          final items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
-          orders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));
+          final orderLocalTime = DateTime.parse(rawCreatedAt).toLocal();
+          if (orderLocalTime.year == targetDate.year &&
+              orderLocalTime.month == targetDate.month &&
+              orderLocalTime.day == targetDate.day) {
+            final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
+            final items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
+            onlineOrders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));
+          }
         }
+        onlineSuccess = true;
+      } catch (e) {
+        print('Supabase orders fetch notice: $e');
       }
-
-      summary ??= DailySalesSummary(
-        date: targetDate,
-        totalOrders: totalOrders,
-        totalSales: totalSales,
-        cashTotal: cashTotal,
-        gpayTotal: gpayTotal,
-        cashOrders: cashOrders,
-        gpayOrders: gpayOrders,
-        splitOrders: splitOrders,
-      );
-
-      return {
-        'summary': summary,
-        'orders': orders,
-      };
-    } catch (e) {
-      print('Error in fetchDailyData: $e');
-      return {
-        'summary': DailySalesSummary.empty(targetDate),
-        'orders': <OrderModel>[],
-      };
     }
+
+    // Fetch local orders saved on this device
+    final localOrders = await _offlineService.getLocalOrdersForDate(targetDate);
+
+    // Merge orders (deduplicate by id)
+    final Map<String, OrderModel> mergedMap = {};
+    for (final o in onlineOrders) {
+      mergedMap[o.id] = o;
+    }
+    for (final o in localOrders) {
+      // Local orders ensure offline orders placed today are immediately visible
+      mergedMap[o.id] = o;
+    }
+
+    final List<OrderModel> finalOrders = mergedMap.values.toList();
+    // Sort descending by created_at
+    finalOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // If no online connection and no local orders, show mock preview only if uninitialized
+    if (!onlineSuccess && finalOrders.isEmpty && !isInitialized) {
+      return _getMockDailyData(targetDate);
+    }
+
+    // Compute aggregate summary
+    int totalOrders = finalOrders.length;
+    double totalSales = 0.0;
+    double cashTotal = 0.0;
+    double gpayTotal = 0.0;
+    int cashOrders = 0;
+    int gpayOrders = 0;
+    int splitOrders = 0;
+
+    for (final o in finalOrders) {
+      totalSales += o.total;
+      cashTotal += o.cashAmount;
+      gpayTotal += o.gpayAmount;
+      if (o.paymentMethod == 'cash') cashOrders++;
+      if (o.paymentMethod == 'gpay') gpayOrders++;
+      if (o.paymentMethod == 'split') splitOrders++;
+    }
+
+    final summary = DailySalesSummary(
+      date: targetDate,
+      totalOrders: totalOrders,
+      totalSales: totalSales,
+      cashTotal: cashTotal,
+      gpayTotal: gpayTotal,
+      cashOrders: cashOrders,
+      gpayOrders: gpayOrders,
+      splitOrders: splitOrders,
+    );
+
+    return {
+      'summary': summary,
+      'orders': finalOrders,
+    };
   }
+
 
   // Mock data for offline / preview testing with distinct dates
   Map<String, dynamic> _getMockDailyData(DateTime targetDate) {

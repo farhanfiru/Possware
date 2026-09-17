@@ -246,8 +246,8 @@ class CartPanel extends StatelessWidget {
                         label: 'Cash',
                         icon: Icons.payments_outlined,
                         isSelected: billing.paymentMethod == 'cash',
-                        activeColor: AppTheme.cashGreen,
-                        activeBg: AppTheme.cashGreenLight,
+                        activeColor: AppTheme.primaryBurgundy,
+                        activeBg: AppTheme.primarySubtle,
                         onTap: () => billing.setPaymentMethod('cash'),
                       ),
                     ),
@@ -316,9 +316,7 @@ class CartPanel extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: billing.paymentMethod == 'gpay'
                           ? AppTheme.gpayBlue
-                          : (billing.paymentMethod == 'split'
-                              ? AppTheme.primaryBurgundy
-                              : AppTheme.cashGreen),
+                          : AppTheme.primaryBurgundy,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(

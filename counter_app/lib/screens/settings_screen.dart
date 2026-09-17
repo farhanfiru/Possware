@@ -215,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ElevatedButton.icon(
                         onPressed: _promptForAdminPassword,
                         icon: const Icon(Icons.key, size: 16),
-                        label: const Text('Unlock with PIN (9599)'),
+                        label: const Text('Unlock with PIN'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryBurgundy,
                           foregroundColor: Colors.white,

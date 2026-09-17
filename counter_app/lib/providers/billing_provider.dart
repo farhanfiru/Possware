@@ -4,16 +4,20 @@ import '../models/cart_item.dart';
 import '../models/order_model.dart';
 import '../services/supabase_service.dart';
 import '../services/printer_service.dart';
+import '../services/offline_storage_service.dart';
 
 class BillingProvider extends ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService();
   final PrinterService _printerService = PrinterService();
+  final OfflineStorageService _offlineService = OfflineStorageService();
 
   List<MenuItem> _menuItems = [];
   List<String> _categories = ['All'];
   String _selectedCategory = 'All';
   String _searchQuery = '';
   bool _isLoading = false;
+  int _pendingOfflineCount = 0;
+  bool _isSyncing = false;
 
   final List<CartItem> _cart = [];
   String _paymentMethod = 'cash'; // 'cash', 'gpay', or 'split'
@@ -36,6 +40,8 @@ class BillingProvider extends ChangeNotifier {
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
+  int get pendingOfflineCount => _pendingOfflineCount;
+  bool get isSyncing => _isSyncing;
 
   List<CartItem> get cart => List.unmodifiable(_cart);
   String get paymentMethod => _paymentMethod;
@@ -55,36 +61,84 @@ class BillingProvider extends ChangeNotifier {
 
   bool get isPrinterConnected => _printerService.isConnected;
 
-  // Initialize data non-blocking
+  // Initialize data
   Future<void> init() async {
-    // 1. Immediately load mock menu so UI is never blank or stuck
-    _updateMenuItemsList(_supabaseService.getMockMenuItems());
-    _isLoading = false;
+    _isLoading = true;
     notifyListeners();
 
-    // 2. Initialize services asynchronously in background
+    try {
+      await _supabaseService.initialize().timeout(const Duration(seconds: 4), onTimeout: () => false);
+      await fetchMenu();
+      await refreshPendingOfflineCount();
+
+      // Trigger background sync if there are pending offline orders
+      if (_pendingOfflineCount > 0) {
+        syncOfflineOrdersNow();
+      }
+
+      _supabaseService.subscribeToMenuChanges((updatedMenu) {
+        if (updatedMenu.isNotEmpty) {
+          _updateMenuItemsList(updatedMenu);
+        }
+      });
+    } catch (e) {
+      print('Init notice: $e');
+      if (_menuItems.isEmpty) {
+        _updateMenuItemsList(_supabaseService.getMockMenuItems());
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+
+    // Initialize bluetooth printer non-blocking in background
     Future.microtask(() async {
       try {
-        await _supabaseService.initialize().timeout(const Duration(seconds: 4), onTimeout: () => false);
         await _printerService.init().timeout(const Duration(seconds: 3), onTimeout: () {});
-        await fetchMenu();
-
-        _supabaseService.subscribeToMenuChanges((updatedMenu) {
-          _updateMenuItemsList(updatedMenu);
-        });
+        notifyListeners();
       } catch (e) {
-        print('Background init notice: $e');
+        print('Printer init notice: $e');
       }
     });
   }
 
+  Future<void> refreshPendingOfflineCount() async {
+    try {
+      _pendingOfflineCount = await _offlineService.getPendingOfflineOrdersCount();
+      notifyListeners();
+    } catch (e) {
+      print('Error checking pending offline count: $e');
+    }
+  }
+
+  Future<int> syncOfflineOrdersNow() async {
+    if (_isSyncing) return 0;
+    _isSyncing = true;
+    notifyListeners();
+
+    try {
+      final synced = await _supabaseService.syncOfflineOrders();
+      await refreshPendingOfflineCount();
+      return synced;
+    } catch (e) {
+      print('Sync error: $e');
+      return 0;
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+
   Future<void> fetchMenu() async {
     try {
       final items = await _supabaseService.fetchMenuItems().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => _supabaseService.getMockMenuItems(),
+        const Duration(seconds: 8),
+        onTimeout: () => _menuItems.isNotEmpty ? _menuItems : _supabaseService.getMockMenuItems(),
       );
-      _updateMenuItemsList(items);
+      if (items.isNotEmpty) {
+        _updateMenuItemsList(items);
+      }
     } catch (e) {
       print('Fetch menu notice: $e');
       if (_menuItems.isEmpty) {
@@ -219,10 +273,20 @@ class BillingProvider extends ChangeNotifier {
 
       // Auto-print receipt
       if (autoPrint && order != null && _printerService.isConnected) {
-        await _printerService.printReceipt(order);
+        try {
+          await _printerService.printReceipt(order);
+        } catch (printErr) {
+          print('Printer receipt notice: $printErr');
+        }
       }
 
       clearCart();
+      await refreshPendingOfflineCount();
+
+      // If there are queued orders, try background sync non-blocking
+      if (_pendingOfflineCount > 0) {
+        Future.microtask(() => syncOfflineOrdersNow());
+      }
 
       _isProcessingOrder = false;
       notifyListeners();

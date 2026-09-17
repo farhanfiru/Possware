@@ -31,33 +31,92 @@ class AppTheme {
   static const Color errorRed = Color(0xFFDC2626);
   static const Color errorRedLight = Color(0xFFFEE2E2);
 
+  // Typography Presets (Plus Jakarta Sans)
+  static TextStyle font({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w500,
+    Color color = textDark,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing ?? -0.2,
+      height: height,
+    );
+  }
+
+  static TextStyle heading({
+    double fontSize = 18,
+    FontWeight fontWeight = FontWeight.w800,
+    Color color = textDark,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing ?? -0.4,
+    );
+  }
+
+  static TextStyle price({
+    double fontSize = 18,
+    FontWeight fontWeight = FontWeight.w900,
+    Color color = textDark,
+  }) {
+    return GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: -0.5,
+    );
+  }
+
   static ThemeData get theme {
+    final baseFont = GoogleFonts.plusJakartaSans();
     final baseTextTheme = GoogleFonts.plusJakartaSansTextTheme();
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: baseFont.fontFamily,
       scaffoldBackgroundColor: scaffoldBg,
       primaryColor: primaryBurgundy,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryBurgundy,
         primary: primaryBurgundy,
-        secondary: cashGreen,
+        secondary: primaryBurgundy,
         surface: surfaceWhite,
       ),
-      textTheme: baseTextTheme.copyWith(
-        displayLarge: baseTextTheme.displayLarge?.copyWith(color: textDark, fontWeight: FontWeight.w800),
-        displayMedium: baseTextTheme.displayMedium?.copyWith(color: textDark, fontWeight: FontWeight.w700),
-        titleLarge: baseTextTheme.titleLarge?.copyWith(color: textDark, fontWeight: FontWeight.w700),
-        titleMedium: baseTextTheme.titleMedium?.copyWith(color: textDark, fontWeight: FontWeight.w600),
-        bodyLarge: baseTextTheme.bodyLarge?.copyWith(color: textDark),
-        bodyMedium: baseTextTheme.bodyMedium?.copyWith(color: textSecondary),
+      textTheme: baseTextTheme.apply(
+        fontFamily: baseFont.fontFamily,
+        bodyColor: textDark,
+        displayColor: textDark,
+      ).copyWith(
+        displayLarge: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w900, letterSpacing: -1.0),
+        displayMedium: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w800, letterSpacing: -0.8),
+        titleLarge: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w800, letterSpacing: -0.4),
+        titleMedium: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+        titleSmall: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+        bodyLarge: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+        bodyMedium: GoogleFonts.plusJakartaSans(color: textSecondary, fontWeight: FontWeight.w500),
+        bodySmall: GoogleFonts.plusJakartaSans(color: textMuted, fontWeight: FontWeight.w500),
+        labelLarge: GoogleFonts.plusJakartaSans(color: textDark, fontWeight: FontWeight.w700, letterSpacing: -0.2),
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: surfaceWhite,
         foregroundColor: textDark,
         elevation: 0,
         centerTitle: false,
         scrolledUnderElevation: 0,
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: textDark,
+          letterSpacing: -0.3,
+        ),
       ),
       cardTheme: CardThemeData(
         color: surfaceWhite,
@@ -76,6 +135,7 @@ class AppTheme {
           textStyle: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
             fontSize: 14,
+            letterSpacing: -0.2,
           ),
         ),
       ),
@@ -86,20 +146,35 @@ class AppTheme {
           ),
           side: const BorderSide(color: cardBorder, width: 1.5),
           textStyle: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             fontSize: 14,
+            letterSpacing: -0.2,
           ),
         ),
       ),
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        labelStyle: GoogleFonts.plusJakartaSans(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceWhite,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 13.5,
+          color: textMuted,
+          fontWeight: FontWeight.w500,
+        ),
+        labelStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 13.5,
+          color: textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: cardBorder),
@@ -118,6 +193,17 @@ class AppTheme {
         elevation: 10,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
+        ),
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: textDark,
+          letterSpacing: -0.3,
+        ),
+        contentTextStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 13.5,
+          color: textSecondary,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

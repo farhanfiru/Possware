@@ -27,6 +27,13 @@ class OrderModel {
     final cash = (json['cash_amount'] as num?)?.toDouble() ?? (method == 'cash' ? total : 0.0);
     final gpay = (json['gpay_amount'] as num?)?.toDouble() ?? (method == 'gpay' ? total : 0.0);
 
+    List<OrderItemModel> resolvedItems = items;
+    if (resolvedItems.isEmpty && json['items'] is List) {
+      resolvedItems = (json['items'] as List)
+          .map((i) => OrderItemModel.fromMap(Map<String, dynamic>.from(i as Map)))
+          .toList();
+    }
+
     return OrderModel(
       id: json['id'] as String,
       createdAt: json['created_at'] != null 
@@ -38,8 +45,26 @@ class OrderModel {
       gpayAmount: gpay,
       status: json['status'] as String? ?? 'completed',
       notes: json['notes'] as String?,
-      items: items,
+      items: resolvedItems,
     );
+  }
+
+  factory OrderModel.fromMap(Map<String, dynamic> map) {
+    return OrderModel.fromJson(map);
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'created_at': createdAt.toIso8601String(),
+      'total': total,
+      'payment_method': paymentMethod,
+      'cash_amount': cashAmount,
+      'gpay_amount': gpayAmount,
+      'status': status,
+      if (notes != null) 'notes': notes,
+      'items': items.map((i) => i.toMap()).toList(),
+    };
   }
 
   Map<String, dynamic> toInsertJson() {
@@ -76,16 +101,21 @@ class OrderItemModel {
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     return OrderItemModel(
       id: json['id'] as String?,
-      orderId: json['order_id'] as String,
+      orderId: json['order_id'] as String? ?? '',
       menuItemId: json['menu_item_id'] as String?,
-      name: json['name'] as String,
-      price: (json['price'] as num).toDouble(),
-      qty: json['qty'] as int,
+      name: json['name'] as String? ?? 'Item',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      qty: (json['qty'] as num?)?.toInt() ?? 1,
     );
   }
 
-  Map<String, dynamic> toInsertJson() {
+  factory OrderItemModel.fromMap(Map<String, dynamic> map) {
+    return OrderItemModel.fromJson(map);
+  }
+
+  Map<String, dynamic> toMap() {
     return {
+      if (id != null) 'id': id,
       'order_id': orderId,
       if (menuItemId != null) 'menu_item_id': menuItemId,
       'name': name,
@@ -93,4 +123,19 @@ class OrderItemModel {
       'qty': qty,
     };
   }
+
+  Map<String, dynamic> toInsertJson() {
+    final bool isValidUuid = menuItemId != null &&
+        RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+            .hasMatch(menuItemId!);
+
+    return {
+      'order_id': orderId,
+      if (isValidUuid) 'menu_item_id': menuItemId,
+      'name': name,
+      'price': price,
+      'qty': qty,
+    };
+  }
 }
+

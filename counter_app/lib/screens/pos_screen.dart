@@ -40,33 +40,29 @@ class _PosScreenState extends State<PosScreen> {
           preferredSize: const Size.fromHeight(1),
           child: Container(color: AppTheme.cardBorder, height: 1),
         ),
+        titleSpacing: 8,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Branded "N" Burgundy Badge (matches Owner Dashboard)
             Container(
-              width: 32,
-              height: 32,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
-                color: AppTheme.primaryBurgundy,
-                borderRadius: BorderRadius.circular(8),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.cardBorder),
               ),
-              child: const Center(
-                child: Text(
-                  'N',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    height: 1,
-                  ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
             const Text(
               'NEYCO POS',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14.5,
                 fontWeight: FontWeight.w800,
                 color: AppTheme.textDark,
                 letterSpacing: -0.3,
@@ -85,30 +81,31 @@ class _PosScreenState extends State<PosScreen> {
                   MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
                 );
               },
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                margin: const EdgeInsets.symmetric(vertical: 13, horizontal: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: billing.isPrinterConnected ? AppTheme.cashGreenLight : AppTheme.errorRedLight,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: billing.isPrinterConnected ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
                     width: 1,
                   ),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       billing.isPrinterConnected ? Icons.print : Icons.print_disabled,
-                      size: 14,
+                      size: 12,
                       color: billing.isPrinterConnected ? AppTheme.cashGreen : AppTheme.errorRed,
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 2.5),
                     Text(
-                      billing.isPrinterConnected ? 'Printer Ready' : 'No Printer',
+                      billing.isPrinterConnected ? 'Printer' : 'No Printer',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: billing.isPrinterConnected ? AppTheme.cashGreen : AppTheme.errorRed,
                       ),
@@ -119,9 +116,65 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ),
 
+          // Offline Pending Sync Badge
+          if (billing.pendingOfflineCount > 0 || billing.isSyncing)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: billing.isSyncing
+                    ? null
+                    : () async {
+                        final count = await billing.syncOfflineOrdersNow();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(count > 0 ? 'Synced $count offline orders to cloud!' : 'Sync attempted. Waiting for connection.'),
+                              backgroundColor: count > 0 ? AppTheme.cashGreen : AppTheme.primaryBurgundy,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 13, horizontal: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      billing.isSyncing
+                          ? const SizedBox(
+                              width: 9,
+                              height: 9,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFD97706)),
+                            )
+                          : const Icon(Icons.cloud_upload_outlined, size: 11, color: Color(0xFFD97706)),
+                      const SizedBox(width: 2.5),
+                      Text(
+                        billing.isSyncing ? 'Sync' : '${billing.pendingOfflineCount} Offline',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF92400E),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // Daily Sales Report Navigation
           IconButton(
-            icon: const Icon(Icons.bar_chart_rounded, color: AppTheme.textDark, size: 22),
+            icon: const Icon(Icons.bar_chart_rounded, color: AppTheme.textDark, size: 20),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             tooltip: 'Sales Report',
             onPressed: () {
               Navigator.push(
@@ -133,7 +186,9 @@ class _PosScreenState extends State<PosScreen> {
 
           // Settings
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary, size: 22),
+            icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary, size: 20),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             tooltip: 'Settings',
             onPressed: () {
               Navigator.push(
@@ -142,7 +197,7 @@ class _PosScreenState extends State<PosScreen> {
               );
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
       body: isTablet

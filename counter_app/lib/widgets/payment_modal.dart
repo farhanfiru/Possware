@@ -80,10 +80,10 @@ class _PaymentModalState extends State<PaymentModal> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.cashGreenLight,
+                        color: AppTheme.primarySubtle,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.payments_outlined, color: AppTheme.cashGreen, size: 20),
+                      child: const Icon(Icons.payments_outlined, color: AppTheme.primaryBurgundy, size: 20),
                     ),
                     const SizedBox(width: 10),
                     const Text(
@@ -183,10 +183,10 @@ class _PaymentModalState extends State<PaymentModal> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: billing.changeDue > 0 ? AppTheme.cashGreenLight : AppTheme.scaffoldBg,
+                color: billing.changeDue > 0 ? AppTheme.primarySubtle : AppTheme.scaffoldBg,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: billing.changeDue > 0 ? const Color(0xFF86EFAC) : AppTheme.cardBorder,
+                  color: billing.changeDue > 0 ? const Color(0xFFF0CCD0) : AppTheme.cardBorder,
                 ),
               ),
               child: Row(
@@ -197,7 +197,7 @@ class _PaymentModalState extends State<PaymentModal> {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13.5,
-                      color: billing.changeDue > 0 ? AppTheme.cashGreen : AppTheme.textSecondary,
+                      color: billing.changeDue > 0 ? AppTheme.primaryBurgundy : AppTheme.textSecondary,
                     ),
                   ),
                   Text(
@@ -205,7 +205,7 @@ class _PaymentModalState extends State<PaymentModal> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: billing.changeDue > 0 ? AppTheme.cashGreen : AppTheme.textDark,
+                      color: billing.changeDue > 0 ? AppTheme.primaryBurgundy : AppTheme.textDark,
                       letterSpacing: -0.3,
                     ),
                   ),
@@ -240,7 +240,7 @@ class _PaymentModalState extends State<PaymentModal> {
               child: ElevatedButton(
                 onPressed: _isProcessing ? null : () => _submitOrder(billing),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cashGreen,
+                  backgroundColor: AppTheme.primaryBurgundy,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
