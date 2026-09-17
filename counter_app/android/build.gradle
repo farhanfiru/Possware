@@ -1,0 +1,42 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+    plugins.withId("com.android.library") {
+        if (project.name == "blue_thermal_printer") {
+            project.android.namespace = "id.kakzaki.blue_thermal_printer"
+            
+            // Clean legacy package attribute from manifest for AGP 8.9+ compatibility
+            project.tasks.configureEach { task ->
+                if (task.name.contains("Manifest")) {
+                    task.doFirst {
+                        def manifestFile = file("${project.projectDir}/src/main/AndroidManifest.xml")
+                        if (manifestFile.exists()) {
+                            def text = manifestFile.getText("UTF-8")
+                            if (text.contains('package="id.kakzaki.blue_thermal_printer"')) {
+                                manifestFile.write(text.replace('package="id.kakzaki.blue_thermal_printer"', ''), "UTF-8")
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (!project.android.hasProperty("namespace") || project.android.namespace == null) {
+            project.android.namespace = "com.plugin.${project.name.replace('-', '_')}"
+        }
+    }
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
