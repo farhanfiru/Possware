@@ -221,8 +221,10 @@ class SupabaseService {
     List<OrderModel> onlineOrders = [];
     bool onlineSuccess = false;
 
-    // NEYCO trading shift boundary is 3:00 AM (subtract 3 hours for business date)
-    final targetBiz = targetDate.toLocal().subtract(const Duration(hours: 3));
+    // targetDate is the business day to match (e.g. 2026-09-18)
+    final targetYear = targetDate.year;
+    final targetMonth = targetDate.month;
+    final targetDay = targetDate.day;
 
     if (isInitialized) {
       try {
@@ -231,7 +233,7 @@ class SupabaseService {
             .select('*, order_items(*)')
             .eq('status', 'completed')
             .order('created_at', ascending: false)
-            .limit(400)
+            .limit(500)
             .timeout(const Duration(seconds: 5));
 
         final list = (res as List<dynamic>?) ?? [];
@@ -239,10 +241,11 @@ class SupabaseService {
           final rawCreatedAt = orderJson['created_at']?.toString();
           if (rawCreatedAt == null) continue;
 
+          // Shift order created_at by -3 hours to get its trading business date
           final orderBiz = DateTime.parse(rawCreatedAt).toLocal().subtract(const Duration(hours: 3));
-          if (orderBiz.year == targetBiz.year &&
-              orderBiz.month == targetBiz.month &&
-              orderBiz.day == targetBiz.day) {
+          if (orderBiz.year == targetYear &&
+              orderBiz.month == targetMonth &&
+              orderBiz.day == targetDay) {
             final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
             final items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
             onlineOrders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));

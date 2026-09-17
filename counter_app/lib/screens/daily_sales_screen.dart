@@ -18,7 +18,12 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
   final SupabaseService _supabaseService = SupabaseService();
   final PrinterService _printerService = PrinterService();
 
-  DateTime _selectedDate = DateTime.now().subtract(const Duration(hours: 3));
+  static DateTime _getBusinessToday() {
+    final shifted = DateTime.now().subtract(const Duration(hours: 3));
+    return DateTime(shifted.year, shifted.month, shifted.day);
+  }
+
+  late DateTime _selectedDate;
   DailySalesSummary? _summary;
   List<OrderModel> _orders = [];
   bool _isLoading = true;
@@ -27,6 +32,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedDate = _getBusinessToday();
     _loadSalesData();
   }
 
@@ -57,13 +63,13 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
 
   void _changeDate(int offsetDays) {
     setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: offsetDays));
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day + offsetDays);
     });
     _loadSalesData();
   }
 
   Future<void> _pickDate() async {
-    final businessToday = DateTime.now().subtract(const Duration(hours: 3));
+    final businessToday = _getBusinessToday();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
@@ -71,7 +77,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
       lastDate: businessToday.add(const Duration(days: 1)),
     );
     if (picked != null && (picked.year != _selectedDate.year || picked.month != _selectedDate.month || picked.day != _selectedDate.day)) {
-      setState(() => _selectedDate = picked);
+      setState(() => _selectedDate = DateTime(picked.year, picked.month, picked.day));
       _loadSalesData();
     }
   }
