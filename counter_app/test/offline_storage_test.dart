@@ -21,6 +21,7 @@ void main() {
         cashAmount: 200.0,
         gpayAmount: 150.0,
         notes: 'Less spicy',
+        invoiceNumber: '1809-001',
         items: [
           OrderItemModel(
             id: 'item_1',
@@ -45,6 +46,8 @@ void main() {
       final reconstructed = OrderModel.fromMap(map);
 
       expect(reconstructed.id, equals('ord_123'));
+      expect(reconstructed.invoiceNumber, equals('1809-001'));
+      expect(reconstructed.displayInvoiceNumber, equals('1809-001'));
       expect(reconstructed.total, equals(350.0));
       expect(reconstructed.paymentMethod, equals('split'));
       expect(reconstructed.cashAmount, equals(200.0));
@@ -54,6 +57,17 @@ void main() {
       expect(reconstructed.items[0].name, equals('Classic Veg Burger'));
       expect(reconstructed.items[0].qty, equals(2));
       expect(reconstructed.items[1].name, equals('Chicken Tikka'));
+    });
+
+    test('OrderModel fallback displayInvoiceNumber generates clean date-based format', () {
+      final orderPastMidnight = OrderModel(
+        id: 'ord-a1b2-c3d4-9876',
+        createdAt: DateTime(2026, 9, 19, 1, 30), // Belongs to 18 Sep trading day (3 AM boundary)
+        total: 100.0,
+        paymentMethod: 'cash',
+      );
+
+      expect(orderPastMidnight.displayInvoiceNumber.startsWith('1809-'), isTrue);
     });
 
     test('OfflineStorageService saves and retrieves cached menu items', () async {

@@ -70,7 +70,7 @@ class OrderReceiptDialog extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Bill #${order.id.substring(0, 8).toUpperCase()}',
+              'Bill #${order.displayInvoiceNumber}',
               style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),

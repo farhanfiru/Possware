@@ -59,7 +59,18 @@ class BillingProvider extends ChangeNotifier {
     return (_cashTendered - target) > 0 ? (_cashTendered - target) : 0.0;
   }
 
+  BillingProvider() {
+    _printerService.addListener(() {
+      notifyListeners();
+    });
+  }
+
   bool get isPrinterConnected => _printerService.isConnected;
+
+  Future<void> refreshPrinterStatus() async {
+    await _printerService.checkConnection();
+    notifyListeners();
+  }
 
   // Initialize data
   Future<void> init() async {

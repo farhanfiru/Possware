@@ -8,6 +8,7 @@ class OrderModel {
   final String status;
   final String? notes;
   final List<OrderItemModel> items;
+  final String? invoiceNumber;
 
   OrderModel({
     required this.id,
@@ -19,7 +20,24 @@ class OrderModel {
     this.status = 'completed',
     this.notes,
     this.items = const [],
+    this.invoiceNumber,
   });
+
+  String get displayInvoiceNumber {
+    if (invoiceNumber != null && invoiceNumber!.trim().isNotEmpty) {
+      return invoiceNumber!;
+    }
+    final bizDate = createdAt.toLocal().subtract(const Duration(hours: 3));
+    final dd = bizDate.day.toString().padLeft(2, '0');
+    final mm = bizDate.month.toString().padLeft(2, '0');
+    final datePrefix = '$dd$mm';
+
+    final numericOnly = id.replaceAll(RegExp(r'[^0-9]'), '');
+    final suffix = numericOnly.length >= 3
+        ? numericOnly.substring(numericOnly.length - 3)
+        : (id.length >= 3 ? id.substring(0, 3).toUpperCase() : '001');
+    return '$datePrefix-$suffix';
+  }
 
   factory OrderModel.fromJson(Map<String, dynamic> json, [List<OrderItemModel> items = const []]) {
     final method = json['payment_method'] as String? ?? 'cash';
@@ -46,6 +64,7 @@ class OrderModel {
       status: json['status'] as String? ?? 'completed',
       notes: json['notes'] as String?,
       items: resolvedItems,
+      invoiceNumber: json['invoice_number'] as String?,
     );
   }
 
@@ -63,6 +82,7 @@ class OrderModel {
       'gpay_amount': gpayAmount,
       'status': status,
       if (notes != null) 'notes': notes,
+      if (invoiceNumber != null) 'invoice_number': invoiceNumber,
       'items': items.map((i) => i.toMap()).toList(),
     };
   }
@@ -77,6 +97,7 @@ class OrderModel {
       'gpay_amount': gpayAmount,
       'status': status,
       if (notes != null) 'notes': notes,
+      if (invoiceNumber != null) 'invoice_number': invoiceNumber,
     };
   }
 }

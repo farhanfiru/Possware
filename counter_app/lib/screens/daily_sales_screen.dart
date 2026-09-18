@@ -481,7 +481,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Bill #${order.id.substring(0, 8).toUpperCase()}',
+                                      'Bill #${order.displayInvoiceNumber}',
                                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppTheme.textDark),
                                     ),
                                     const SizedBox(height: 2),

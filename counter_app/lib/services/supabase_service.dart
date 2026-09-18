@@ -103,6 +103,38 @@ class SupabaseService {
     final orderId = const Uuid().v4();
     final now = DateTime.now();
 
+    // Date-based clean invoice number (e.g., 1809-001) with 3 AM midnight shift boundary
+    final bizDate = now.subtract(const Duration(hours: 3));
+    final dd = bizDate.day.toString().padLeft(2, '0');
+    final mm = bizDate.month.toString().padLeft(2, '0');
+    final datePrefix = '$dd$mm';
+
+    int nextSeqNum = 1;
+    if (isInitialized) {
+      try {
+        final shiftStartUtc = DateTime(bizDate.year, bizDate.month, bizDate.day, 3, 0).toUtc();
+        final shiftEndUtc = shiftStartUtc.add(const Duration(hours: 24));
+        final countRes = await client
+            .from('orders')
+            .select('id')
+            .gte('created_at', shiftStartUtc.toIso8601String())
+            .lt('created_at', shiftEndUtc.toIso8601String())
+            .limit(1000)
+            .timeout(const Duration(seconds: 3));
+
+        final list = (countRes as List<dynamic>?) ?? [];
+        nextSeqNum = list.length + 1;
+      } catch (e) {
+        print('Could not fetch DB count for invoice sequence: $e');
+        final todaysOrders = await _offlineService.getLocalOrdersForDate(bizDate);
+        nextSeqNum = todaysOrders.length + 1;
+      }
+    } else {
+      final todaysOrders = await _offlineService.getLocalOrdersForDate(bizDate);
+      nextSeqNum = todaysOrders.length + 1;
+    }
+    final generatedInvoiceNumber = '$datePrefix-${nextSeqNum.toString().padLeft(3, '0')}';
+
     final double effectiveCash = paymentMethod == 'cash'
         ? total
         : (paymentMethod == 'gpay' ? 0.0 : (cashAmount ?? 0.0));
@@ -119,6 +151,7 @@ class SupabaseService {
       gpayAmount: effectiveGpay,
       status: 'completed',
       notes: notes,
+      invoiceNumber: generatedInvoiceNumber,
       items: cartItems.map((cartItem) {
         return OrderItemModel(
           orderId: orderId,
@@ -139,8 +172,23 @@ class SupabaseService {
     }
 
     try {
-      // 2. Try inserting to Supabase with timeout
-      await client.from('orders').insert(order.toInsertJson()).timeout(const Duration(seconds: 4));
+      // 2. Try inserting to Supabase with timeout (with fallback if schema column not added yet)
+      try {
+        await client.from('orders').insert(order.toInsertJson()).timeout(const Duration(seconds: 4));
+      } catch (insertErr) {
+        print('Orders insert note (fallback without invoice_number if column pending): $insertErr');
+        final standardJson = {
+          'id': order.id,
+          'created_at': order.createdAt.toIso8601String(),
+          'total': order.total,
+          'payment_method': order.paymentMethod,
+          'cash_amount': order.cashAmount,
+          'gpay_amount': order.gpayAmount,
+          'status': order.status,
+          if (order.notes != null) 'notes': order.notes,
+        };
+        await client.from('orders').insert(standardJson).timeout(const Duration(seconds: 4));
+      }
 
       try {
         final itemsJson = order.items.map((item) => item.toInsertJson()).toList();

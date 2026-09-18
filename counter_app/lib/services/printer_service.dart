@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +8,7 @@ import '../config/supabase_config.dart';
 
 enum PaperSizeOption { mm58, mm80 }
 
-class PrinterService {
+class PrinterService extends ChangeNotifier {
   static final PrinterService _instance = PrinterService._internal();
   factory PrinterService() => _instance;
   PrinterService._internal();
@@ -28,14 +29,17 @@ class PrinterService {
     _paperSize = is80mm ? PaperSizeOption.mm80 : PaperSizeOption.mm58;
 
     _bluetooth.onStateChanged().listen((state) {
-      if (state == BlueThermalPrinter.CONNECTED) {
-        _isConnected = true;
-      } else {
-        _isConnected = false;
+      final oldState = _isConnected;
+      _isConnected = (state == BlueThermalPrinter.CONNECTED);
+      if (oldState != _isConnected) {
+        notifyListeners();
       }
     });
 
-    if (savedAddress != null) {
+    // Check initial native connection state
+    await checkConnection();
+
+    if (savedAddress != null && !_isConnected) {
       final devices = await getBondedDevices();
       for (final dev in devices) {
         if (dev.address == savedAddress) {
@@ -44,6 +48,19 @@ class PrinterService {
           break;
         }
       }
+    }
+  }
+
+  Future<bool> checkConnection() async {
+    try {
+      final connected = await _bluetooth.isConnected ?? false;
+      if (_isConnected != connected) {
+        _isConnected = connected;
+        notifyListeners();
+      }
+      return _isConnected;
+    } catch (_) {
+      return _isConnected;
     }
   }
 
@@ -65,6 +82,7 @@ class PrinterService {
       await _bluetooth.connect(device);
       _selectedDevice = device;
       _isConnected = true;
+      notifyListeners();
 
       final prefs = await SharedPreferences.getInstance();
       if (device.address != null) {
@@ -74,6 +92,7 @@ class PrinterService {
     } catch (e) {
       print('Failed to connect to printer: $e');
       _isConnected = false;
+      notifyListeners();
       return false;
     }
   }
@@ -82,6 +101,7 @@ class PrinterService {
     try {
       await _bluetooth.disconnect();
       _isConnected = false;
+      notifyListeners();
     } catch (e) {
       print('Disconnect error: $e');
     }
@@ -89,6 +109,7 @@ class PrinterService {
 
   Future<void> setPaperSize(PaperSizeOption size) async {
     _paperSize = size;
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('printer_is_80mm', size == PaperSizeOption.mm80);
   }
@@ -105,13 +126,18 @@ class PrinterService {
       final restaurantAddress = await SupabaseConfig.getRestaurantAddress();
       final restaurantPhone = await SupabaseConfig.getRestaurantPhone();
       final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
-      final formattedDate = dateFormat.format(order.createdAt);
-      final maxChars = _paperSize == PaperSizeOption.mm58 ? 32 : 48;
+      final formattedDate = dateFormat.format(order.createdAt.toLocal());
+      final is80mm = _paperSize == PaperSizeOption.mm80;
+      final maxChars = is80mm ? 42 : 32;
 
-      // 1. Restaurant Header
-      _bluetooth.printCustom(restaurantName, 3, 1); // Size 3 (Large), Center
-      _bluetooth.printCustom(restaurantAddress, 0, 1); // Size 0 (Small), Center
-      _bluetooth.printCustom('Ph: $restaurantPhone', 0, 1);
+      // 1. Restaurant Header (Size 2: clean & sharp, no huge top whitespace gap)
+      _bluetooth.printCustom(restaurantName, 2, 1);
+      if (restaurantAddress.trim().isNotEmpty) {
+        _bluetooth.printCustom(restaurantAddress, 0, 1);
+      }
+      if (restaurantPhone.trim().isNotEmpty) {
+        _bluetooth.printCustom('Ph: $restaurantPhone', 0, 1);
+      }
       _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
 
       // 2. Order Metadata
@@ -125,63 +151,87 @@ class PrinterService {
       }
 
       _bluetooth.printLeftRight(
-        'Invoice: #${order.id.substring(0, 8).toUpperCase()}',
+        'Invoice: #${order.displayInvoiceNumber}',
         paymentBadge,
-        1,
+        0,
       );
-      _bluetooth.printCustom('Date: $formattedDate', 0, 0); // Left align
+      _bluetooth.printCustom('Date: $formattedDate', 0, 0);
       _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
 
-      // 3. Table Column Headers
-      if (_paperSize == PaperSizeOption.mm58) {
-        _bluetooth.printCustom('ITEM            QTY     TOTAL', 1, 0);
+      // 3. Table Column Headers & Item Rows
+      if (is80mm) {
+        // 80mm: 42-column fixed grid (18 item + 1 + 4 qty + 1 + 8 price + 1 + 9 total = 42)
+        final headerItem = 'ITEM'.padRight(18);
+        final headerQty = 'QTY'.padLeft(4);
+        final headerPrice = 'PRICE'.padLeft(8);
+        final headerTotal = 'TOTAL'.padLeft(9);
+        _bluetooth.printCustom('$headerItem $headerQty $headerPrice $headerTotal', 0, 0);
+        _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+
+        for (final item in order.items) {
+          final lineTotal = (item.price * item.qty).toStringAsFixed(2);
+          final unitPrice = item.price.toStringAsFixed(2);
+
+          String itemName = item.name.trim();
+          if (itemName.length > 18) {
+            itemName = '${itemName.substring(0, 15)}...';
+          }
+
+          final colItem = itemName.padRight(18);
+          final colQty = '${item.qty}'.padLeft(4);
+          final colPrice = unitPrice.padLeft(8);
+          final colTotal = lineTotal.padLeft(9);
+
+          _bluetooth.printCustom('$colItem $colQty $colPrice $colTotal', 0, 0);
+        }
       } else {
-        _bluetooth.printCustom('ITEM                          QTY    PRICE    TOTAL', 1, 0);
-      }
-      _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+        // 58mm: 32-column compact format
+        _bluetooth.printCustom('ITEM            QTY     TOTAL', 0, 0);
+        _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
 
-      // 4. Item Rows
-      for (final item in order.items) {
-        final lineTotal = (item.price * item.qty).toStringAsFixed(2);
-        final unitPrice = item.price.toStringAsFixed(2);
+        for (final item in order.items) {
+          final lineTotal = (item.price * item.qty).toStringAsFixed(2);
+          final unitPrice = item.price.toStringAsFixed(2);
 
-        if (_paperSize == PaperSizeOption.mm58) {
-          String itemName = item.name;
-          if (itemName.length > 30) {
-            itemName = '${itemName.substring(0, 27)}...';
+          String itemName = item.name.trim();
+          if (itemName.length > 28) {
+            itemName = '${itemName.substring(0, 25)}...';
           }
           _bluetooth.printCustom(itemName, 0, 0);
           _bluetooth.printLeftRight('  ${item.qty} x Rs.$unitPrice', 'Rs.$lineTotal', 0);
-        } else {
-          String itemName = item.name;
-          if (itemName.length > 26) {
-            itemName = '${itemName.substring(0, 23)}...';
-          }
-          _bluetooth.printLeftRight(
-            itemName.padRight(26) + '  ${item.qty}'.padRight(6) + ' Rs.$unitPrice'.padRight(10),
-            'Rs.$lineTotal',
-            0,
-          );
         }
       }
 
-      // 5. Totals & Payment Summary
+      // 4. Totals & Payment Summary
       _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
       _bluetooth.printLeftRight(
         'TOTAL AMOUNT:',
         'Rs. ${order.total.toStringAsFixed(2)}',
-        2, // Bold / Medium
+        1, // Size 1: bold & fits on a single line without wrapping
       );
-      _bluetooth.printLeftRight(
-        'Payment Mode:',
-        paymentBadge,
-        1,
-      );
+
+      if (order.paymentMethod == 'split') {
+        _bluetooth.printLeftRight('  Cash Amount:', 'Rs. ${order.cashAmount.toStringAsFixed(2)}', 0);
+        _bluetooth.printLeftRight('  GPay Amount:', 'Rs. ${order.gpayAmount.toStringAsFixed(2)}', 0);
+      } else {
+        _bluetooth.printLeftRight(
+          'Payment Mode:',
+          paymentBadge,
+          0,
+        );
+      }
       _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
 
-      // 6. Footer & Cut Feed
+      // 5. Footer & Bottom Feed past cutting blade
       _bluetooth.printCustom('Thank you for dining with us!', 1, 1);
       _bluetooth.printCustom('Please visit again', 0, 1);
+      
+      // Feed paper past the cutting blade / tear bar (approx 30mm)
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
       _bluetooth.printNewLine();
       _bluetooth.printNewLine();
       _bluetooth.paperCut();
@@ -201,7 +251,8 @@ class PrinterService {
       final restaurantName = await SupabaseConfig.getRestaurantName();
       final dateFormat = DateFormat('dd MMMM yyyy');
       final timeFormat = DateFormat('hh:mm a');
-      final maxChars = _paperSize == PaperSizeOption.mm58 ? 32 : 48;
+      final is80mm = _paperSize == PaperSizeOption.mm80;
+      final maxChars = is80mm ? 42 : 32;
 
       _bluetooth.printCustom(restaurantName, 2, 1);
       _bluetooth.printCustom('DAILY SALES SUMMARY REPORT', 1, 1);
@@ -216,10 +267,15 @@ class PrinterService {
       _bluetooth.printLeftRight('GPAY (UPI) TOTAL:', 'Rs. ${summary.gpayTotal.toStringAsFixed(2)}', 1);
       _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
 
-      _bluetooth.printLeftRight('GRAND TOTAL SALES:', 'Rs. ${summary.totalSales.toStringAsFixed(2)}', 2);
+      _bluetooth.printLeftRight('GRAND TOTAL SALES:', 'Rs. ${summary.totalSales.toStringAsFixed(2)}', 1);
       _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
 
       _bluetooth.printCustom('Thank you, visit again!', 1, 1);
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
       _bluetooth.printNewLine();
       _bluetooth.printNewLine();
       _bluetooth.paperCut();
@@ -235,14 +291,20 @@ class PrinterService {
   Future<bool> printTestReceipt() async {
     if (!_isConnected) return false;
 
-    final maxChars = _paperSize == PaperSizeOption.mm58 ? 32 : 48;
+    final is80mm = _paperSize == PaperSizeOption.mm80;
+    final maxChars = is80mm ? 42 : 32;
     try {
       _bluetooth.printCustom('TEST PRINT SUCCESSFUL', 2, 1);
       _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
       _bluetooth.printLeftRight('Printer Status:', 'ONLINE', 1);
-      _bluetooth.printLeftRight('Paper Mode:', _paperSize == PaperSizeOption.mm58 ? '58mm (32 Col)' : '80mm (48 Col)', 0);
+      _bluetooth.printLeftRight('Paper Mode:', is80mm ? '80mm (42 Col)' : '58mm (32 Col)', 0);
       _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
       _bluetooth.printCustom('Neyco POS System Ready!', 1, 1);
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
+      _bluetooth.printNewLine();
       _bluetooth.printNewLine();
       _bluetooth.printNewLine();
       _bluetooth.paperCut();

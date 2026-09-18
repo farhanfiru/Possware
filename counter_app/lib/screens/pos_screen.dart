@@ -75,11 +75,14 @@ class _PosScreenState extends State<PosScreen> {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
                 );
+                if (context.mounted) {
+                  billing.refreshPrinterStatus();
+                }
               },
               borderRadius: BorderRadius.circular(16),
               child: Container(
