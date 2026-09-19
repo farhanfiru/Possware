@@ -332,14 +332,14 @@ class CartPanel extends StatelessWidget {
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.print, size: 18),
+                              const Icon(Icons.check_circle_outline, size: 18),
                               const SizedBox(width: 8),
                               Text(
                                 billing.paymentMethod == 'split'
-                                    ? 'Split & Print (₹${billing.grandTotal.toStringAsFixed(2)})'
+                                    ? 'Charge Split (₹${billing.grandTotal.toStringAsFixed(2)})'
                                     : (billing.paymentMethod == 'gpay'
-                                        ? 'Charge GPay ₹${billing.grandTotal.toStringAsFixed(2)} & Print'
-                                        : 'Charge Cash ₹${billing.grandTotal.toStringAsFixed(2)} & Print'),
+                                        ? 'Charge GPay ₹${billing.grandTotal.toStringAsFixed(2)}'
+                                        : 'Charge Cash ₹${billing.grandTotal.toStringAsFixed(2)}'),
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -435,7 +435,7 @@ class CartPanel extends StatelessWidget {
   Future<void> _handleChargeAction(BuildContext context, BillingProvider billing) async {
     if (billing.paymentMethod == 'gpay') {
       try {
-        final order = await billing.processCheckout(autoPrint: true);
+        final order = await billing.processCheckout(autoPrint: false);
         if (order != null && context.mounted) {
           showDialog(
             context: context,

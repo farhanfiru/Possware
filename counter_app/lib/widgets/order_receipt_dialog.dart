@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import '../models/order_model.dart';
-import '../providers/billing_provider.dart';
 import '../services/printer_service.dart';
 import '../theme/app_theme.dart';
 
-class OrderReceiptDialog extends StatelessWidget {
+class OrderReceiptDialog extends StatefulWidget {
   final OrderModel order;
   final bool isViewingHistory;
 
@@ -17,19 +15,25 @@ class OrderReceiptDialog extends StatelessWidget {
   });
 
   @override
+  State<OrderReceiptDialog> createState() => _OrderReceiptDialogState();
+}
+
+class _OrderReceiptDialogState extends State<OrderReceiptDialog> {
+  bool _isPrinting = false;
+
+  @override
   Widget build(BuildContext context) {
-    final billing = context.watch<BillingProvider>();
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
 
-    String paymentLabel = order.paymentMethod.toUpperCase();
+    String paymentLabel = widget.order.paymentMethod.toUpperCase();
     Color badgeBg = AppTheme.cashGreenLight;
     Color badgeFg = AppTheme.cashGreen;
 
-    if (order.paymentMethod == 'gpay') {
+    if (widget.order.paymentMethod == 'gpay') {
       paymentLabel = 'GPAY';
       badgeBg = AppTheme.gpayBlueLight;
       badgeFg = AppTheme.gpayBlue;
-    } else if (order.paymentMethod == 'split') {
+    } else if (widget.order.paymentMethod == 'split') {
       paymentLabel = 'SPLIT';
       badgeBg = AppTheme.primarySubtle;
       badgeFg = AppTheme.primaryBurgundy;
@@ -39,45 +43,58 @@ class OrderReceiptDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: AppTheme.surfaceWhite,
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(22),
         constraints: const BoxConstraints(maxWidth: 420),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon Badge
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: isViewingHistory ? AppTheme.gpayBlueLight : AppTheme.cashGreenLight,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isViewingHistory ? Icons.receipt_long : Icons.check_circle_rounded,
-                color: isViewingHistory ? AppTheme.gpayBlue : AppTheme.cashGreen,
-                size: 32,
-              ),
+            // Top Bar with Close X
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(width: 32), // Placeholder to center badge
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: widget.isViewingHistory ? AppTheme.gpayBlueLight : AppTheme.cashGreenLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.isViewingHistory ? Icons.receipt_long : Icons.check_circle_rounded,
+                    color: widget.isViewingHistory ? AppTheme.gpayBlue : AppTheme.cashGreen,
+                    size: 28,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Close',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              isViewingHistory ? 'Bill Details' : 'Order Completed!',
+              widget.isViewingHistory ? 'Bill Details' : 'Order Saved & Completed!',
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
                 color: AppTheme.textDark,
                 letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
-              'Bill #${order.displayInvoiceNumber}',
+              'Bill #${widget.order.displayInvoiceNumber}',
               style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Receipt Container Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppTheme.scaffoldBg,
                 borderRadius: BorderRadius.circular(14),
@@ -89,7 +106,7 @@ class OrderReceiptDialog extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Date & Time:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                      Text(dateFormat.format(order.createdAt), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                      Text(dateFormat.format(widget.order.createdAt), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -114,86 +131,82 @@ class OrderReceiptDialog extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const Divider(color: AppTheme.cardBorder, height: 20),
+                  const Divider(color: AppTheme.cardBorder, height: 18),
                   // Items list
-                  ...order.items.map((item) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
+                  ...widget.order.items.map((item) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.5),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
                             '${item.qty}x ${item.name}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textDark),
                           ),
                         ),
                         Text(
                           '₹${(item.price * item.qty).toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppTheme.textDark),
                         ),
                       ],
                     ),
                   )),
-                  const Divider(color: AppTheme.cardBorder, height: 20),
+                  const Divider(color: AppTheme.cardBorder, height: 18),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Amount:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
+                      const Text('Total Amount:', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
                       Text(
-                        '₹${order.total.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.textDark),
+                        '₹${widget.order.total.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppTheme.textDark),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Action buttons
+            // Action Buttons (Print Bill vs Close)
             Row(
               children: [
+                // 1. Optional Print Button
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      if (isViewingHistory) {
-                        await PrinterService().printReceipt(order);
-                      } else {
-                        await billing.reprintLastBill();
-                      }
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Printing receipt...')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.print, size: 16),
-                    label: Text(isViewingHistory ? 'Print Bill' : 'Re-Print'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      foregroundColor: AppTheme.textDark,
-                      side: const BorderSide(color: AppTheme.cardBorderHover),
+                  child: ElevatedButton.icon(
+                    onPressed: _isPrinting ? null : _handlePrint,
+                    icon: _isPrinting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.print, size: 17),
+                    label: Text(
+                      _isPrinting ? 'Printing...' : 'Print Bill',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (isViewingHistory) {
-                        Navigator.of(context).pop();
-                      } else {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      }
-                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryBurgundy,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      isViewingHistory ? 'Close' : 'Next Bill',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // 2. Close / Next Bill Button (No Print)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      foregroundColor: AppTheme.textDark,
+                      side: const BorderSide(color: AppTheme.cardBorderHover, width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
                     ),
                   ),
                 ),
@@ -203,5 +216,50 @@ class OrderReceiptDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handlePrint() async {
+    setState(() => _isPrinting = true);
+    final printerService = PrinterService();
+    
+    if (!printerService.isConnected) {
+      setState(() => _isPrinting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Printer not connected. Please connect in Settings.'),
+            backgroundColor: AppTheme.errorRed,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final success = await printerService.printReceipt(widget.order);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Receipt printed successfully!' : 'Printing failed. Check printer.'),
+            backgroundColor: success ? AppTheme.cashGreen : AppTheme.errorRed,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Print error: $e'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
   }
 }

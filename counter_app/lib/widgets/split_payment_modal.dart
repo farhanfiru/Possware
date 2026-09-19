@@ -280,10 +280,10 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.print, size: 18),
+                          const Icon(Icons.check_circle_rounded, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            'Charge Split (₹${_cashPortion.toStringAsFixed(0)} Cash + ₹${_gpayPortion.toStringAsFixed(0)} GPay)',
+                            'Save Split Bill (₹${_cashPortion.toStringAsFixed(0)} Cash + ₹${_gpayPortion.toStringAsFixed(0)} GPay)',
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                           ),
                         ],
@@ -305,7 +305,7 @@ class _SplitPaymentModalState extends State<SplitPaymentModal> {
     try {
       billing.setPaymentMethod('split');
       final order = await billing.processCheckout(
-        autoPrint: true,
+        autoPrint: false,
         cashAmount: _cashPortion,
         gpayAmount: _gpayPortion,
         notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,

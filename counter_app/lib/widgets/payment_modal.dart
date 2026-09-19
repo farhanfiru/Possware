@@ -253,10 +253,10 @@ class _PaymentModalState extends State<PaymentModal> {
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.print, size: 18),
+                          const Icon(Icons.check_circle_rounded, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            'Complete & Print (₹${billing.grandTotal.toStringAsFixed(2)})',
+                            'Save & Complete Bill (₹${billing.grandTotal.toStringAsFixed(2)})',
                             style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                           ),
                         ],
@@ -306,7 +306,7 @@ class _PaymentModalState extends State<PaymentModal> {
 
     try {
       final order = await billing.processCheckout(
-        autoPrint: true,
+        autoPrint: false,
         notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
       );
 

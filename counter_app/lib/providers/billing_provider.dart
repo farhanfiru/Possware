@@ -257,7 +257,7 @@ class BillingProvider extends ChangeNotifier {
 
   // Checkout and optional printing
   Future<OrderModel?> processCheckout({
-    bool autoPrint = true,
+    bool autoPrint = false,
     double? cashAmount,
     double? gpayAmount,
     String? notes,

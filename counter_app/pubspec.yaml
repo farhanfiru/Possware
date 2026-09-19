@@ -13,8 +13,9 @@ dependencies:
   # Supabase SDK for Flutter
   supabase_flutter: ^2.5.6
   
-  # Bluetooth ESC/POS Thermal Printing
+  # ESC/POS Thermal Printing (Bluetooth & USB)
   blue_thermal_printer: ^1.2.3
+  flutter_pos_printer_platform_image_3: ^1.2.4
   esc_pos_utils_plus: ^2.0.1
   permission_handler: ^11.3.1
   
