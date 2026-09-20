@@ -177,33 +177,33 @@ class CartPanel extends StatelessWidget {
                           Container(
                             decoration: BoxDecoration(
                               color: AppTheme.scaffoldBg,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: AppTheme.cardBorder),
                             ),
                             child: Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.remove, size: 14),
+                                  icon: const Icon(Icons.remove, size: 18),
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                                   color: AppTheme.errorRed,
                                   onPressed: () => billing.decrementQuantity(item.menuItem.id),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6),
                                   child: Text(
                                     '${item.quantity}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
-                                      fontSize: 12.5,
+                                      fontSize: 14,
                                       color: AppTheme.textDark,
                                     ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.add, size: 14),
+                                  icon: const Icon(Icons.add, size: 18),
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                                   color: AppTheme.primaryBurgundy,
                                   onPressed: () => billing.incrementQuantity(item.menuItem.id),
                                 ),

@@ -106,7 +106,7 @@ class _OrderReceiptDialogState extends State<OrderReceiptDialog> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Date & Time:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                      Text(dateFormat.format(widget.order.createdAt), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                      Text(dateFormat.format(widget.order.createdAt.toLocal()), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
                     ],
                   ),
                   const SizedBox(height: 6),

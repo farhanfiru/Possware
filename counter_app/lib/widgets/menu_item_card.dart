@@ -135,16 +135,16 @@ class MenuItemCard extends StatelessWidget {
                           _buildStepperBtn(
                             icon: Icons.remove,
                             onTap: onDecrement ?? () {},
-                            color: Colors.transparent,
+                            color: AppTheme.errorRed.withValues(alpha: 0.1),
                             iconColor: AppTheme.errorRed,
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Text(
                               '$inCartCount',
                               style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
                                 color: AppTheme.textDark,
                               ),
                             ),
@@ -159,17 +159,22 @@ class MenuItemCard extends StatelessWidget {
                       ),
                     )
                   else
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primarySubtle,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: AppTheme.primaryBurgundy,
-                        size: 18,
+                    InkWell(
+                      onTap: onAdd,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primarySubtle,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.primaryBurgundy.withValues(alpha: 0.2)),
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: AppTheme.primaryBurgundy,
+                          size: 24,
+                        ),
                       ),
                     ),
                 ],
@@ -189,15 +194,15 @@ class MenuItemCard extends StatelessWidget {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 28,
-        height: 28,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 14, color: iconColor),
+        child: Icon(icon, size: 22, color: iconColor),
       ),
     );
   }

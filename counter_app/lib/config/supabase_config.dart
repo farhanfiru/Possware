@@ -20,19 +20,35 @@ class SupabaseConfig {
     return prefs.getString(_keyAnonKey) ?? defaultAnonKey;
   }
 
+  static const String defaultRestaurantName = 'Neyco';
+  static const String defaultRestaurantAddress = 'Naduvattam, Edappal';
+  static const String defaultRestaurantPhone = '+91 9567114687';
+
   static Future<String> getRestaurantName() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyRestaurantName) ?? 'Delicious Bites Cafe';
+    final val = prefs.getString(_keyRestaurantName);
+    if (val != null && val.isNotEmpty && val != 'Delicious Bites Cafe') {
+      return val;
+    }
+    return defaultRestaurantName;
   }
 
   static Future<String> getRestaurantAddress() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyRestaurantAddress) ?? '123 Food Street, Downtown';
+    final val = prefs.getString(_keyRestaurantAddress);
+    if (val != null && val.isNotEmpty && val != '123 Food Street, Downtown') {
+      return val;
+    }
+    return defaultRestaurantAddress;
   }
 
   static Future<String> getRestaurantPhone() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyRestaurantPhone) ?? '+91 98765 43210';
+    final val = prefs.getString(_keyRestaurantPhone);
+    if (val != null && val.isNotEmpty && val != '+91 98765 43210') {
+      return val;
+    }
+    return defaultRestaurantPhone;
   }
 
   static Future<void> saveConfig({

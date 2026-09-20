@@ -55,7 +55,7 @@ class OrderModel {
     return OrderModel(
       id: json['id'] as String,
       createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String) 
+          ? DateTime.parse(json['created_at'] as String).toLocal() 
           : DateTime.now(),
       total: total,
       paymentMethod: method,

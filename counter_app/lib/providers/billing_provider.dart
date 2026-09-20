@@ -29,11 +29,26 @@ class BillingProvider extends ChangeNotifier {
 
   // Getters
   List<MenuItem> get menuItems {
-    return _menuItems.where((item) {
+    final filtered = _menuItems.where((item) {
       final matchesCategory = _selectedCategory == 'All' || item.category.toLowerCase() == _selectedCategory.toLowerCase();
       final matchesSearch = _searchQuery.isEmpty || item.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
+
+    // When "All" is selected, place "Mains" items at the very top of the list
+    if (_selectedCategory.toLowerCase() == 'all') {
+      filtered.sort((a, b) {
+        final aIsMain = a.category.toLowerCase().contains('main');
+        final bIsMain = b.category.toLowerCase().contains('main');
+        if (aIsMain && !bIsMain) return -1;
+        if (!aIsMain && bIsMain) return 1;
+        final catComp = a.category.compareTo(b.category);
+        if (catComp != 0) return catComp;
+        return a.name.compareTo(b.name);
+      });
+    }
+
+    return filtered;
   }
 
   List<String> get categories => _categories;
@@ -160,11 +175,15 @@ class BillingProvider extends ChangeNotifier {
 
   void _updateMenuItemsList(List<MenuItem> items) {
     _menuItems = items;
-    final catSet = <String>{'All'};
+    final catSet = <String>{};
     for (final item in items) {
       if (item.category.isNotEmpty) catSet.add(item.category);
     }
-    _categories = catSet.toList();
+    final sortedCats = catSet.toList()..sort((a, b) => a.compareTo(b));
+    final mainsList = sortedCats.where((c) => c.toLowerCase().contains('main')).toList();
+    final nonMainsList = sortedCats.where((c) => !c.toLowerCase().contains('main')).toList();
+
+    _categories = ['All', ...mainsList, ...nonMainsList];
     notifyListeners();
   }
 

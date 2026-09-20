@@ -486,7 +486,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      timeFormat.format(order.createdAt),
+                                      timeFormat.format(order.createdAt.toLocal()),
                                       style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
                                     ),
                                   ],
