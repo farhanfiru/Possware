@@ -219,6 +219,60 @@ class SupabaseService {
     }
   }
 
+  // Update payment method and amounts for a saved order
+  Future<bool> updateOrderPaymentMethod({
+    required OrderModel order,
+    required String newPaymentMethod,
+    required double newCashAmount,
+    required double newGpayAmount,
+  }) async {
+    final updatedOrder = order.copyWith(
+      paymentMethod: newPaymentMethod,
+      cashAmount: newCashAmount,
+      gpayAmount: newGpayAmount,
+    );
+
+    // 1. Update local storage so it reflects instantly offline & online
+    await _offlineService.saveLocalOrder(updatedOrder);
+
+    // 2. Ensure Supabase client is initialized
+    if (!_isInitialized || _client == null) {
+      await initialize();
+    }
+
+    if (isInitialized) {
+      try {
+        final res = await client
+            .from('orders')
+            .update({
+              'payment_method': newPaymentMethod,
+              'cash_amount': newCashAmount,
+              'gpay_amount': newGpayAmount,
+            })
+            .eq('id', order.id)
+            .select()
+            .timeout(const Duration(seconds: 5));
+
+        final list = (res as List<dynamic>?) ?? [];
+        if (list.isNotEmpty) {
+          print('Successfully updated order ${order.id} in Supabase');
+          return true;
+        } else {
+          print('Notice: 0 rows updated in Supabase. Please ensure RLS UPDATE policy exists on orders table.');
+          return false;
+        }
+      } catch (e) {
+        print('Error updating order payment method in Supabase: $e');
+        await _offlineService.saveOfflineOrder(updatedOrder);
+        return false;
+      }
+    } else {
+      // Offline: queue for sync
+      await _offlineService.saveOfflineOrder(updatedOrder);
+      return true;
+    }
+  }
+
   // Sync queued offline orders when connection is available
   Future<int> syncOfflineOrders() async {
     try {

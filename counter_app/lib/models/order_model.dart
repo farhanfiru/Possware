@@ -23,6 +23,32 @@ class OrderModel {
     this.invoiceNumber,
   });
 
+  OrderModel copyWith({
+    String? id,
+    DateTime? createdAt,
+    double? total,
+    String? paymentMethod,
+    double? cashAmount,
+    double? gpayAmount,
+    String? status,
+    String? notes,
+    List<OrderItemModel>? items,
+    String? invoiceNumber,
+  }) {
+    return OrderModel(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      total: total ?? this.total,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      cashAmount: cashAmount ?? this.cashAmount,
+      gpayAmount: gpayAmount ?? this.gpayAmount,
+      status: status ?? this.status,
+      notes: notes ?? this.notes,
+      items: items ?? this.items,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
+    );
+  }
+
   String get displayInvoiceNumber {
     if (invoiceNumber != null && invoiceNumber!.trim().isNotEmpty) {
       return invoiceNumber!;

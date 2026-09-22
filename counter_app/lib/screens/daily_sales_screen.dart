@@ -455,14 +455,20 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                       return Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () {
-                            showDialog(
+                          onTap: () async {
+                            final updated = await showDialog<OrderModel>(
                               context: context,
                               builder: (_) => OrderReceiptDialog(
                                 order: order,
                                 isViewingHistory: true,
+                                onOrderUpdated: (_) {
+                                  _loadSalesData();
+                                },
                               ),
                             );
+                            if (updated != null) {
+                              _loadSalesData();
+                            }
                           },
                           borderRadius: BorderRadius.circular(14),
                           child: Container(

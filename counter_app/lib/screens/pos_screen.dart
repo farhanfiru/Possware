@@ -395,7 +395,7 @@ class _PosScreenState extends State<PosScreen> {
           crossAxisCount: crossAxisCount,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: crossAxisCount > 2 ? 1.30 : 1.20,
+          childAspectRatio: crossAxisCount > 2 ? 1.25 : 1.05,
         ),
         itemCount: billing.menuItems.length,
         itemBuilder: (context, index) {

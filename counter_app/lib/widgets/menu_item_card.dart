@@ -89,96 +89,115 @@ class MenuItemCard extends StatelessWidget {
                 ],
               ),
 
-              // Middle: Category tag
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.scaffoldBg,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.cardBorder),
-                ),
-                child: Text(
-                  item.category.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-
-              // Bottom: Price & Stepper / Add button
+              // Middle: Category tag and Price
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.scaffoldBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.cardBorder),
+                      ),
+                      child: Text(
+                        item.category.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   Text(
                     '₹${item.price.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textDark,
                       letterSpacing: -0.3,
                     ),
                   ),
-                  if (hasInCart)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.scaffoldBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.cardBorder),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildStepperBtn(
-                            icon: Icons.remove,
-                            onTap: onDecrement ?? () {},
-                            color: AppTheme.errorRed.withValues(alpha: 0.1),
-                            iconColor: AppTheme.errorRed,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              '$inCartCount',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.textDark,
-                              ),
-                            ),
-                          ),
-                          _buildStepperBtn(
-                            icon: Icons.add,
-                            onTap: onIncrement ?? () {},
-                            color: AppTheme.primaryBurgundy,
-                            iconColor: Colors.white,
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    InkWell(
-                      onTap: onAdd,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primarySubtle,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryBurgundy.withValues(alpha: 0.2)),
-                        ),
-                        child: const Icon(
-                          Icons.add,
-                          color: AppTheme.primaryBurgundy,
-                          size: 24,
-                        ),
-                      ),
-                    ),
                 ],
               ),
+
+              // Bottom Action: Full-width Stepper / Add button
+              if (hasInCart)
+                Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.scaffoldBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.cardBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildStepperBtn(
+                        icon: Icons.remove,
+                        onTap: onDecrement ?? () {},
+                        color: AppTheme.errorRed.withValues(alpha: 0.1),
+                        iconColor: AppTheme.errorRed,
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            '$inCartCount',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.textDark,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _buildStepperBtn(
+                        icon: Icons.add,
+                        onTap: onIncrement ?? () {},
+                        color: AppTheme.primaryBurgundy,
+                        iconColor: Colors.white,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                InkWell(
+                  onTap: onAdd,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primarySubtle,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.primaryBurgundy.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          Icons.add_circle_outline_rounded,
+                          color: AppTheme.primaryBurgundy,
+                          size: 19,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'ADD',
+                          style: TextStyle(
+                            color: AppTheme.primaryBurgundy,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -196,13 +215,13 @@ class MenuItemCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 40,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 22, color: iconColor),
+        child: Icon(icon, size: 20, color: iconColor),
       ),
     );
   }

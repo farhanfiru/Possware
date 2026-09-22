@@ -111,8 +111,8 @@ void main() {
 
     test('OfflineStorageService saves local order history and filters by date', () async {
       final service = OfflineStorageService();
-      final today = DateTime.now();
-      final yesterday = today.subtract(const Duration(days: 1));
+      final today = DateTime(2026, 9, 18, 14, 0);
+      final yesterday = DateTime(2026, 9, 17, 14, 0);
 
       final orderToday = OrderModel(
         id: 'ord_today',
@@ -184,6 +184,35 @@ void main() {
       final sep19Orders = await service.getLocalOrdersForDate(DateTime(2026, 9, 19, 14, 0));
       expect(sep19Orders.length, equals(1));
       expect(sep19Orders.first.id, equals('ord_next_day_19'));
+    });
+
+    test('OrderModel copyWith and saveLocalOrder updates payment method and splits', () async {
+      final service = OfflineStorageService();
+      final original = OrderModel(
+        id: 'ord_edit_test',
+        createdAt: DateTime(2026, 9, 18, 14, 0),
+        total: 500.0,
+        paymentMethod: 'cash',
+        cashAmount: 500.0,
+        gpayAmount: 0.0,
+      );
+
+      await service.saveLocalOrder(original);
+
+      // Edit payment to split (₹300 Cash + ₹200 GPay)
+      final updated = original.copyWith(
+        paymentMethod: 'split',
+        cashAmount: 300.0,
+        gpayAmount: 200.0,
+      );
+
+      await service.saveLocalOrder(updated);
+
+      final retrieved = await service.getAllLocalOrders();
+      expect(retrieved.length, equals(1));
+      expect(retrieved.first.paymentMethod, equals('split'));
+      expect(retrieved.first.cashAmount, equals(300.0));
+      expect(retrieved.first.gpayAmount, equals(200.0));
     });
   });
 }
