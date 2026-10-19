@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 class OrderModel {
   final String id;
   final DateTime createdAt;
@@ -137,13 +139,13 @@ class OrderItemModel {
   final int qty;
 
   OrderItemModel({
-    this.id,
+    String? id,
     required this.orderId,
     this.menuItemId,
     required this.name,
     required this.price,
     required this.qty,
-  });
+  }) : id = id ?? const Uuid().v4();
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     return OrderItemModel(
@@ -177,6 +179,7 @@ class OrderItemModel {
             .hasMatch(menuItemId!);
 
     return {
+      if (id != null) 'id': id,
       'order_id': orderId,
       if (isValidUuid) 'menu_item_id': menuItemId,
       'name': name,

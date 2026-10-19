@@ -60,7 +60,7 @@ class _PosScreenState extends State<PosScreen> {
             ),
             const SizedBox(width: 6),
             const Text(
-              'NEYCO POS',
+              'NEYKO POS',
               style: TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w800,

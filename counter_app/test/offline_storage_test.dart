@@ -214,5 +214,24 @@ void main() {
       expect(retrieved.first.cashAmount, equals(300.0));
       expect(retrieved.first.gpayAmount, equals(200.0));
     });
+
+    test('OrderItemModel auto-generates UUID and includes id in toInsertJson to prevent cloud duplicates', () {
+      final itemWithoutId = OrderItemModel(
+        orderId: 'ord_999',
+        name: 'NAYCO COMBO',
+        price: 250.0,
+        qty: 1,
+      );
+
+      expect(itemWithoutId.id, isNotNull);
+      expect(itemWithoutId.id!.isNotEmpty, isTrue);
+
+      final insertJson = itemWithoutId.toInsertJson();
+      expect(insertJson['id'], equals(itemWithoutId.id));
+      expect(insertJson['order_id'], equals('ord_999'));
+      expect(insertJson['name'], equals('NAYCO COMBO'));
+      expect(insertJson['price'], equals(250.0));
+      expect(insertJson['qty'], equals(1));
+    });
   });
 }

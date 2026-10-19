@@ -15,6 +15,7 @@ class SupabaseService {
   final OfflineStorageService _offlineService = OfflineStorageService();
   SupabaseClient? _client;
   bool _isInitialized = false;
+  bool _isSyncingOffline = false;
 
   bool get isInitialized => _isInitialized && _client != null;
   SupabaseClient get client {
@@ -154,6 +155,7 @@ class SupabaseService {
       invoiceNumber: generatedInvoiceNumber,
       items: cartItems.map((cartItem) {
         return OrderItemModel(
+          id: const Uuid().v4(),
           orderId: orderId,
           menuItemId: cartItem.menuItem.id,
           name: cartItem.menuItem.name,
@@ -275,6 +277,11 @@ class SupabaseService {
 
   // Sync queued offline orders when connection is available
   Future<int> syncOfflineOrders() async {
+    if (_isSyncingOffline) {
+      print('Offline sync already in progress, skipping duplicate concurrent call.');
+      return 0;
+    }
+    _isSyncingOffline = true;
     try {
       if (!_isInitialized || _client == null) {
         final ok = await initialize();
@@ -288,20 +295,29 @@ class SupabaseService {
       for (final order in queuedOrders) {
         try {
           await client.from('orders').upsert(order.toInsertJson()).timeout(const Duration(seconds: 5));
+
+          // Clear any existing items for this order before re-inserting to ensure strict idempotency and prevent duplicate lines
+          try {
+            await client.from('order_items').delete().eq('order_id', order.id).timeout(const Duration(seconds: 4));
+          } catch (delErr) {
+            print('Notice clearing previous order_items for order ${order.id}: $delErr');
+          }
+
           try {
             final itemsJson = order.items.map((item) => item.toInsertJson()).toList();
             if (itemsJson.isNotEmpty) {
-              await client.from('order_items').upsert(itemsJson).timeout(const Duration(seconds: 5));
+              await client.from('order_items').insert(itemsJson).timeout(const Duration(seconds: 5));
             }
           } catch (itemErr) {
             final strippedItems = order.items.map((item) => {
+              if (item.id != null) 'id': item.id,
               'order_id': item.orderId,
               'name': item.name,
               'price': item.price,
               'qty': item.qty,
             }).toList();
             try {
-              await client.from('order_items').upsert(strippedItems).timeout(const Duration(seconds: 3));
+              await client.from('order_items').insert(strippedItems).timeout(const Duration(seconds: 3));
             } catch (_) {}
           }
           await _offlineService.removeOfflineOrder(order.id);
@@ -315,6 +331,8 @@ class SupabaseService {
     } catch (e) {
       print('Error in syncOfflineOrders: $e');
       return 0;
+    } finally {
+      _isSyncingOffline = false;
     }
   }
 
@@ -349,7 +367,11 @@ class SupabaseService {
               orderBiz.month == targetMonth &&
               orderBiz.day == targetDay) {
             final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
-            final items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
+            List<OrderItemModel> items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
+            
+            final orderTotal = (orderJson['total'] as num?)?.toDouble() ?? 0.0;
+            items = _sanitizeAndDeduplicateItems(items, orderTotal);
+
             onlineOrders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));
           }
         }
@@ -414,6 +436,40 @@ class SupabaseService {
       'summary': summary,
       'orders': finalOrders,
     };
+  }
+
+  // Deduplicates repeated item rows if historical records have duplicate insertions
+  List<OrderItemModel> _sanitizeAndDeduplicateItems(List<OrderItemModel> items, double orderTotal) {
+    if (items.length <= 1) return items;
+
+    final double itemsSum = items.fold(0.0, (sum, it) => sum + (it.price * it.qty));
+    // If the items sum matches or is less than the order total, no duplicate rows exist
+    if (itemsSum <= orderTotal + 0.01) {
+      return items;
+    }
+
+    // Items sum exceeds the order's recorded total: deduplicate identical item lines
+    final List<OrderItemModel> deduplicated = [];
+    final Set<String> seenKeys = {};
+
+    for (final it in items) {
+      final key = (it.menuItemId != null && it.menuItemId!.isNotEmpty)
+          ? it.menuItemId!
+          : '${it.name.trim().toLowerCase()}_${it.price}';
+
+      if (!seenKeys.contains(key)) {
+        seenKeys.add(key);
+        deduplicated.add(it);
+      }
+    }
+
+    final double dedupSum = deduplicated.fold(0.0, (sum, it) => sum + (it.price * it.qty));
+    // If the deduplicated sum is closer to orderTotal than itemsSum, use deduplicated list
+    if ((dedupSum - orderTotal).abs() < (itemsSum - orderTotal).abs()) {
+      return deduplicated;
+    }
+
+    return items;
   }
 
 

@@ -482,6 +482,8 @@ class PrinterService extends ChangeNotifier {
 
   // --- BLUETOOTH PRINT IMPLEMENTATIONS ---
 
+  Future<void> _pacingDelay([int ms = 20]) => Future.delayed(Duration(milliseconds: ms));
+
   Future<bool> _printReceiptBluetooth(OrderModel order) async {
     final restaurantName = await SupabaseConfig.getRestaurantName();
     final restaurantAddress = await SupabaseConfig.getRestaurantAddress();
@@ -491,14 +493,19 @@ class PrinterService extends ChangeNotifier {
     final is80mm = _paperSize == PaperSizeOption.mm80;
     final maxChars = is80mm ? 42 : 32;
 
-    _bluetooth.printCustom(restaurantName, 2, 1);
+    await _bluetooth.printCustom(restaurantName, 2, 1);
+    await _pacingDelay();
+
     if (restaurantAddress.trim().isNotEmpty) {
-      _bluetooth.printCustom(restaurantAddress, 0, 1);
+      await _bluetooth.printCustom(restaurantAddress, 0, 1);
+      await _pacingDelay();
     }
     if (restaurantPhone.trim().isNotEmpty) {
-      _bluetooth.printCustom('Ph: $restaurantPhone', 0, 1);
+      await _bluetooth.printCustom('Ph: $restaurantPhone', 0, 1);
+      await _pacingDelay();
     }
-    _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _pacingDelay();
 
     String paymentBadge = order.paymentMethod.toUpperCase();
     if (order.paymentMethod == 'split') {
@@ -509,21 +516,29 @@ class PrinterService extends ChangeNotifier {
       paymentBadge = 'CASH';
     }
 
-    _bluetooth.printLeftRight(
+    await _bluetooth.printLeftRight(
       'Invoice: #${order.displayInvoiceNumber}',
       paymentBadge,
       0,
     );
-    _bluetooth.printCustom('Date: $formattedDate', 0, 0);
-    _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _pacingDelay();
+
+    await _bluetooth.printCustom('Date: $formattedDate', 0, 0);
+    await _pacingDelay();
+
+    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _pacingDelay();
 
     if (is80mm) {
       final headerItem = 'ITEM'.padRight(18);
       final headerQty = 'QTY'.padLeft(4);
       final headerPrice = 'PRICE'.padLeft(8);
       final headerTotal = 'TOTAL'.padLeft(9);
-      _bluetooth.printCustom('$headerItem $headerQty $headerPrice $headerTotal', 0, 0);
-      _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+      await _bluetooth.printCustom('$headerItem $headerQty $headerPrice $headerTotal', 0, 0);
+      await _pacingDelay();
+
+      await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+      await _pacingDelay();
 
       for (final item in order.items) {
         final lineTotal = (item.price * item.qty).toStringAsFixed(2);
@@ -539,11 +554,15 @@ class PrinterService extends ChangeNotifier {
         final colPrice = unitPrice.padLeft(8);
         final colTotal = lineTotal.padLeft(9);
 
-        _bluetooth.printCustom('$colItem $colQty $colPrice $colTotal', 0, 0);
+        await _bluetooth.printCustom('$colItem $colQty $colPrice $colTotal', 0, 0);
+        await _pacingDelay();
       }
     } else {
-      _bluetooth.printCustom('ITEM            QTY     TOTAL', 0, 0);
-      _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+      await _bluetooth.printCustom('ITEM            QTY     TOTAL', 0, 0);
+      await _pacingDelay();
+
+      await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+      await _pacingDelay();
 
       for (final item in order.items) {
         final lineTotal = (item.price * item.qty).toStringAsFixed(2);
@@ -553,40 +572,54 @@ class PrinterService extends ChangeNotifier {
         if (itemName.length > 28) {
           itemName = '${itemName.substring(0, 25)}...';
         }
-        _bluetooth.printCustom(itemName, 0, 0);
-        _bluetooth.printLeftRight('  ${item.qty} x Rs.$unitPrice', 'Rs.$lineTotal', 0);
+        await _bluetooth.printCustom(itemName, 0, 0);
+        await _pacingDelay();
+
+        await _bluetooth.printLeftRight('  ${item.qty} x Rs.$unitPrice', 'Rs.$lineTotal', 0);
+        await _pacingDelay();
       }
     }
 
-    _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    _bluetooth.printLeftRight(
-      'TOTAL AMOUNT:',
-      'Rs. ${order.total.toStringAsFixed(2)}',
-      1,
-    );
+    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _pacingDelay();
+
+    final totalLabel = 'TOTAL AMOUNT:';
+    final totalVal = 'Rs. ${order.total.toStringAsFixed(2)}';
+    if (is80mm) {
+      final spaces = maxChars - totalLabel.length - totalVal.length;
+      final fullLine = totalLabel + (spaces > 0 ? ' ' * spaces : ' ') + totalVal;
+      await _bluetooth.printCustom(fullLine, 1, 0);
+    } else {
+      await _bluetooth.printLeftRight(totalLabel, totalVal, 1);
+    }
+    await _pacingDelay();
 
     if (order.paymentMethod == 'split') {
-      _bluetooth.printLeftRight('  Cash Amount:', 'Rs. ${order.cashAmount.toStringAsFixed(2)}', 0);
-      _bluetooth.printLeftRight('  GPay Amount:', 'Rs. ${order.gpayAmount.toStringAsFixed(2)}', 0);
+      await _bluetooth.printLeftRight('  Cash Amount:', 'Rs. ${order.cashAmount.toStringAsFixed(2)}', 0);
+      await _pacingDelay();
+      await _bluetooth.printLeftRight('  GPay Amount:', 'Rs. ${order.gpayAmount.toStringAsFixed(2)}', 0);
+      await _pacingDelay();
     } else {
-      _bluetooth.printLeftRight(
+      await _bluetooth.printLeftRight(
         'Payment Mode:',
         paymentBadge,
         0,
       );
+      await _pacingDelay();
     }
-    _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _pacingDelay();
 
-    _bluetooth.printCustom('Thank you for dining with us!', 1, 1);
-    _bluetooth.printCustom('Please visit again', 0, 1);
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.paperCut();
+    await _bluetooth.printCustom('Thank you for dining with us!', 1, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom('Please visit again', 0, 1);
+    await _pacingDelay();
+
+    for (int i = 0; i < 4; i++) {
+      await _bluetooth.printNewLine();
+      await _pacingDelay(10);
+    }
+    await _bluetooth.paperCut();
 
     return true;
   }
@@ -598,31 +631,42 @@ class PrinterService extends ChangeNotifier {
     final is80mm = _paperSize == PaperSizeOption.mm80;
     final maxChars = is80mm ? 42 : 32;
 
-    _bluetooth.printCustom(restaurantName, 2, 1);
-    _bluetooth.printCustom('DAILY SALES SUMMARY REPORT', 1, 1);
-    _bluetooth.printCustom('Date: ${dateFormat.format(summary.date)}', 0, 1);
-    _bluetooth.printCustom('Generated: ${timeFormat.format(DateTime.now())}', 0, 1);
-    _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _bluetooth.printCustom(restaurantName, 2, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom('DAILY SALES SUMMARY REPORT', 1, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom('Date: ${dateFormat.format(summary.date)}', 0, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom('Generated: ${timeFormat.format(DateTime.now())}', 0, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _pacingDelay();
 
-    _bluetooth.printLeftRight('Total Customers Today:', '${summary.totalOrders}', 1);
-    _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _bluetooth.printLeftRight('Total Customers Today:', '${summary.totalOrders}', 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _pacingDelay();
 
-    _bluetooth.printLeftRight('CASH RECEIVED:', 'Rs. ${summary.cashTotal.toStringAsFixed(2)}', 1);
-    _bluetooth.printLeftRight('GPAY (UPI) TOTAL:', 'Rs. ${summary.gpayTotal.toStringAsFixed(2)}', 1);
-    _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _bluetooth.printLeftRight('CASH RECEIVED:', 'Rs. ${summary.cashTotal.toStringAsFixed(2)}', 1);
+    await _pacingDelay();
+    await _bluetooth.printLeftRight('GPAY (UPI) TOTAL:', 'Rs. ${summary.gpayTotal.toStringAsFixed(2)}', 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _pacingDelay();
 
-    _bluetooth.printLeftRight('GRAND TOTAL SALES:', 'Rs. ${summary.totalSales.toStringAsFixed(2)}', 1);
-    _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _bluetooth.printLeftRight('GRAND TOTAL SALES:', 'Rs. ${summary.totalSales.toStringAsFixed(2)}', 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _pacingDelay();
 
-    _bluetooth.printCustom('Thank you, visit again!', 1, 1);
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.paperCut();
+    await _bluetooth.printCustom('Thank you, visit again!', 1, 1);
+    await _pacingDelay();
+
+    for (int i = 0; i < 4; i++) {
+      await _bluetooth.printNewLine();
+      await _pacingDelay(10);
+    }
+    await _bluetooth.paperCut();
 
     return true;
   }
@@ -630,20 +674,24 @@ class PrinterService extends ChangeNotifier {
   Future<bool> _printTestReceiptBluetooth() async {
     final is80mm = _paperSize == PaperSizeOption.mm80;
     final maxChars = is80mm ? 42 : 32;
-    _bluetooth.printCustom('TEST PRINT SUCCESSFUL', 2, 1);
-    _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    _bluetooth.printLeftRight('Printer Status:', 'ONLINE (BT)', 1);
-    _bluetooth.printLeftRight('Paper Mode:', is80mm ? '80mm (42 Col)' : '58mm (32 Col)', 0);
-    _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-    _bluetooth.printCustom('Neyco POS System Ready!', 1, 1);
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.printNewLine();
-    _bluetooth.paperCut();
+    await _bluetooth.printCustom('TEST PRINT SUCCESSFUL', 2, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
+    await _pacingDelay();
+    await _bluetooth.printLeftRight('Printer Status:', 'ONLINE (BT)', 1);
+    await _pacingDelay();
+    await _bluetooth.printLeftRight('Paper Mode:', is80mm ? '80mm (42 Col)' : '58mm (32 Col)', 0);
+    await _pacingDelay();
+    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
+    await _pacingDelay();
+    await _bluetooth.printCustom('Neyco POS System Ready!', 1, 1);
+    await _pacingDelay();
+
+    for (int i = 0; i < 4; i++) {
+      await _bluetooth.printNewLine();
+      await _pacingDelay(10);
+    }
+    await _bluetooth.paperCut();
     return true;
   }
 

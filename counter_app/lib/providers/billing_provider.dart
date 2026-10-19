@@ -281,7 +281,7 @@ class BillingProvider extends ChangeNotifier {
     double? gpayAmount,
     String? notes,
   }) async {
-    if (_cart.isEmpty) return null;
+    if (_cart.isEmpty || _isProcessingOrder) return null;
 
     _isProcessingOrder = true;
     notifyListeners();
