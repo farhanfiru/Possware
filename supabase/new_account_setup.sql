@@ -58,6 +58,21 @@ create table if not exists public.order_edits (
     note text
 );
 
+-- Expenses Table
+create table if not exists public.expenses (
+    id uuid primary key default gen_random_uuid(),
+    created_at timestamptz default now() not null,
+    expense_date date not null default (((now() at time zone 'Asia/Kolkata') - interval '3 hours')::date),
+    expense_name text not null,
+    price numeric(10, 2) not null check (price >= 0),
+    category text not null default 'General',
+    notes text,
+    has_edits boolean not null default false,
+    edit_history jsonb not null default '[]'::jsonb,
+    updated_at timestamptz not null default now(),
+    deleted_at timestamptz
+);
+
 -- ------------------------------------------------------------------------------
 -- 2. INDEXES
 -- ------------------------------------------------------------------------------
@@ -74,6 +89,9 @@ create index if not exists idx_order_items_menu_item_id on public.order_items(me
 
 create index if not exists idx_order_edits_order_id on public.order_edits(order_id);
 create index if not exists idx_order_edits_edited_at on public.order_edits(edited_at desc);
+
+create index if not exists idx_expenses_date on public.expenses(expense_date desc) where deleted_at is null;
+create index if not exists idx_expenses_category on public.expenses(category) where deleted_at is null;
 
 -- ------------------------------------------------------------------------------
 -- 3. REPORTING VIEWS (With Asia/Kolkata 3:00 AM Shift Cutoff)
@@ -150,6 +168,59 @@ group by
     date_trunc('month', (created_at at time zone 'Asia/Kolkata') - interval '3 hours'), 
     to_char((created_at at time zone 'Asia/Kolkata') - interval '3 hours', 'Month YYYY')
 order by sale_month desc;
+
+-- Daily Expenses View
+create or replace view public.daily_expenses as
+select
+    expense_date,
+    count(*)::int as num_expenses,
+    coalesce(sum(price), 0)::numeric(10,2) as total_expenses
+from public.expenses
+where deleted_at is null
+group by expense_date
+order by expense_date desc;
+
+-- Daily Category Expenses View
+create or replace view public.daily_category_expenses as
+select
+    expense_date,
+    category,
+    count(*)::int as num_expenses,
+    coalesce(sum(price), 0)::numeric(10,2) as total_expenses
+from public.expenses
+where deleted_at is null
+group by expense_date, category
+order by expense_date desc, total_expenses desc;
+
+-- Monthly Expenses View
+create or replace view public.monthly_expenses as
+select
+    date_trunc('month', expense_date)::date as expense_month,
+    to_char(expense_date, 'Month YYYY') as month_label,
+    count(*)::int as num_expenses,
+    coalesce(sum(price), 0)::numeric(10,2) as total_expenses
+from public.expenses
+where deleted_at is null
+group by 
+    date_trunc('month', expense_date)::date,
+    to_char(expense_date, 'Month YYYY')
+order by expense_month desc;
+
+-- Monthly Category Expenses View
+create or replace view public.monthly_category_expenses as
+select
+    date_trunc('month', expense_date)::date as expense_month,
+    to_char(expense_date, 'Month YYYY') as month_label,
+    category,
+    count(*)::int as num_expenses,
+    coalesce(sum(price), 0)::numeric(10,2) as total_expenses
+from public.expenses
+where deleted_at is null
+group by 
+    date_trunc('month', expense_date)::date,
+    to_char(expense_date, 'Month YYYY'),
+    category
+order by expense_month desc, total_expenses desc;
 
 -- ------------------------------------------------------------------------------
 -- 4. DASHBOARD SUMMARY RPC FUNCTION
@@ -251,6 +322,23 @@ after update on public.orders
 for each row
 execute function public.log_order_edit();
 
+-- Expenses Audit Trigger
+create or replace function public.trg_expenses_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+    new.updated_at := now();
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_expenses_set_updated_at on public.expenses;
+create trigger trg_expenses_set_updated_at
+before update on public.expenses
+for each row
+execute function public.trg_expenses_updated_at();
+
 -- ------------------------------------------------------------------------------
 -- 6. ROW LEVEL SECURITY (RLS) POLICIES
 -- ------------------------------------------------------------------------------
@@ -258,6 +346,7 @@ alter table public.menu_items enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 alter table public.order_edits enable row level security;
+alter table public.expenses enable row level security;
 
 -- Menu Items Policies
 drop policy if exists "Allow public read on menu_items" on public.menu_items;
@@ -323,6 +412,24 @@ on public.order_edits for select using (true);
 create policy "Allow public insert on order_edits"
 on public.order_edits for insert with check (true);
 
+-- Expenses Policies
+drop policy if exists "Allow public select on expenses" on public.expenses;
+drop policy if exists "Allow public insert on expenses" on public.expenses;
+drop policy if exists "Allow public update on expenses" on public.expenses;
+drop policy if exists "Allow public delete on expenses" on public.expenses;
+
+create policy "Allow public select on expenses"
+on public.expenses for select using (true);
+
+create policy "Allow public insert on expenses"
+on public.expenses for insert with check (true);
+
+create policy "Allow public update on expenses"
+on public.expenses for update using (true) with check (true);
+
+create policy "Allow public delete on expenses"
+on public.expenses for delete using (true);
+
 -- ------------------------------------------------------------------------------
 -- 7. PERMISSIONS & REALTIME
 -- ------------------------------------------------------------------------------
@@ -332,13 +439,14 @@ grant all on all sequences in schema public to anon, authenticated;
 grant execute on function public.get_dashboard_summary() to anon, authenticated;
 grant execute on function public.log_order_edit() to anon, authenticated;
 
--- Enable Realtime for orders and menu_items
+-- Enable Realtime for orders, menu_items, and expenses
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
     alter publication supabase_realtime add table public.orders;
     alter publication supabase_realtime add table public.menu_items;
     alter publication supabase_realtime add table public.order_edits;
+    alter publication supabase_realtime add table public.expenses;
   end if;
 end $$;
 

@@ -482,7 +482,7 @@ class PrinterService extends ChangeNotifier {
 
   // --- BLUETOOTH PRINT IMPLEMENTATIONS ---
 
-  Future<void> _pacingDelay([int ms = 20]) => Future.delayed(Duration(milliseconds: ms));
+  Future<void> _pacingDelay([int ms = 80]) => Future.delayed(Duration(milliseconds: ms));
 
   Future<bool> _printReceiptBluetooth(OrderModel order) async {
     final restaurantName = await SupabaseConfig.getRestaurantName();
@@ -617,7 +617,7 @@ class PrinterService extends ChangeNotifier {
 
     for (int i = 0; i < 4; i++) {
       await _bluetooth.printNewLine();
-      await _pacingDelay(10);
+      await _pacingDelay(50);
     }
     await _bluetooth.paperCut();
 
@@ -664,7 +664,7 @@ class PrinterService extends ChangeNotifier {
 
     for (int i = 0; i < 4; i++) {
       await _bluetooth.printNewLine();
-      await _pacingDelay(10);
+      await _pacingDelay(50);
     }
     await _bluetooth.paperCut();
 
@@ -689,7 +689,7 @@ class PrinterService extends ChangeNotifier {
 
     for (int i = 0; i < 4; i++) {
       await _bluetooth.printNewLine();
-      await _pacingDelay(10);
+      await _pacingDelay(50);
     }
     await _bluetooth.paperCut();
     return true;

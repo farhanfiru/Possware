@@ -348,32 +348,34 @@ class SupabaseService {
 
     if (isInitialized) {
       try {
+        // Business day runs from 3:00 AM on targetDate to 3:00 AM on targetDate+1 (local time).
+        // Convert these boundaries to UTC for the Supabase query.
+        final shiftStart = DateTime(targetYear, targetMonth, targetDay, 3, 0); // 3 AM local on target date
+        final shiftEnd = shiftStart.add(const Duration(hours: 24)); // 3 AM local next day
+        final shiftStartUtc = shiftStart.toUtc().toIso8601String();
+        final shiftEndUtc = shiftEnd.toUtc().toIso8601String();
+
         final res = await client
             .from('orders')
             .select('*, order_items(*)')
             .eq('status', 'completed')
+            .gte('created_at', shiftStartUtc)
+            .lt('created_at', shiftEndUtc)
             .order('created_at', ascending: false)
-            .limit(500)
-            .timeout(const Duration(seconds: 5));
+            .timeout(const Duration(seconds: 8));
 
         final list = (res as List<dynamic>?) ?? [];
         for (final orderJson in list) {
           final rawCreatedAt = orderJson['created_at']?.toString();
           if (rawCreatedAt == null) continue;
 
-          // Shift order created_at by -3 hours to get its trading business date
-          final orderBiz = DateTime.parse(rawCreatedAt).toLocal().subtract(const Duration(hours: 3));
-          if (orderBiz.year == targetYear &&
-              orderBiz.month == targetMonth &&
-              orderBiz.day == targetDay) {
-            final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
-            List<OrderItemModel> items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
+          final itemsRaw = (orderJson['order_items'] as List<dynamic>?) ?? [];
+          List<OrderItemModel> items = itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList();
             
-            final orderTotal = (orderJson['total'] as num?)?.toDouble() ?? 0.0;
-            items = _sanitizeAndDeduplicateItems(items, orderTotal);
+          final orderTotal = (orderJson['total'] as num?)?.toDouble() ?? 0.0;
+          items = _sanitizeAndDeduplicateItems(items, orderTotal);
 
-            onlineOrders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));
-          }
+          onlineOrders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>, items));
         }
         onlineSuccess = true;
       } catch (e) {
