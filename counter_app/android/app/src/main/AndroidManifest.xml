@@ -21,7 +21,7 @@
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <application
-        android:label="NEYKO POS"
+        android:label="POSWare"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

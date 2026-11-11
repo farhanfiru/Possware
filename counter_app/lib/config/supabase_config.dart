@@ -1,8 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SupabaseConfig {
-  static const String defaultUrl = 'https://gkagzqvjhspwyvywxdcn.supabase.co';
-  static const String defaultAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrYWd6cXZqaHNwd3l2eXd4ZGNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NDgyNDQsImV4cCI6MjEwNDEyNDI0NH0.898_rE2ENSMJg0-Ni8cVXCkXeQbr-xzKb4DyWDjTvvw';
+  static const String defaultUrl = '';
+  static const String defaultAnonKey = '';
 
   static const String _keyUrl = 'supabase_url';
   static const String _keyAnonKey = 'supabase_anon_key';
@@ -20,9 +20,9 @@ class SupabaseConfig {
     return prefs.getString(_keyAnonKey) ?? defaultAnonKey;
   }
 
-  static const String defaultRestaurantName = 'Neyco';
-  static const String defaultRestaurantAddress = 'Naduvattam, Edappal';
-  static const String defaultRestaurantPhone = '+91 9567114687';
+  static const String defaultRestaurantName = 'Restaurent';
+  static const String defaultRestaurantAddress = 'Kerala';
+  static const String defaultRestaurantPhone = '+91 123456789';
 
   static Future<String> getRestaurantName() async {
     final prefs = await SharedPreferences.getInstance();

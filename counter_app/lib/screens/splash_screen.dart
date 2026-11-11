@@ -97,7 +97,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
                 // Brand Title
                 Text(
-                  'NEYKO POS',
+                  'POSWare',
                   style: AppTheme.heading(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,

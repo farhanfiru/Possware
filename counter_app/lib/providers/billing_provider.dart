@@ -81,6 +81,7 @@ class BillingProvider extends ChangeNotifier {
   }
 
   bool get isPrinterConnected => _printerService.isConnected;
+  int get activePrinterCount => _printerService.activePrinterCount;
 
   Future<void> refreshPrinterStatus() async {
     await _printerService.checkConnection();
@@ -301,10 +302,11 @@ class BillingProvider extends ChangeNotifier {
 
       _lastCompletedOrder = order;
 
-      // Auto-print receipt
+      // Auto-print receipt & kitchen ticket
       if (autoPrint && order != null && _printerService.isConnected) {
         try {
           await _printerService.printReceipt(order);
+          await _printerService.printKitchenTicket(order);
         } catch (printErr) {
           print('Printer receipt notice: $printErr');
         }

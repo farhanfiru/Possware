@@ -60,7 +60,7 @@ class _PosScreenState extends State<PosScreen> {
             ),
             const SizedBox(width: 6),
             const Text(
-              'NEYKO POS',
+              'POSWare',
               style: TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w800,
@@ -106,7 +106,11 @@ class _PosScreenState extends State<PosScreen> {
                     ),
                     const SizedBox(width: 2.5),
                     Text(
-                      billing.isPrinterConnected ? 'Printer' : 'No Printer',
+                      billing.isPrinterConnected
+                          ? (billing.activePrinterCount > 1
+                              ? 'Printers (${billing.activePrinterCount})'
+                              : 'Printer')
+                          : 'No Printer',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,

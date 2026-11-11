@@ -32,3 +32,6 @@ counter_app/.pub/
 # OS
 .DS_Store
 Thumbs.db
+
+# Sensitive local notes
+pos.txt

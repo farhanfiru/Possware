@@ -1,15 +1,17 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/app_printer.dart';
 import '../models/order_model.dart';
 import '../models/sales_summary.dart';
 import '../config/supabase_config.dart';
 
-enum PrinterConnectionType { bluetooth, usb }
-enum PaperSizeOption { mm58, mm80 }
+export '../models/app_printer.dart';
 
 class PrinterService extends ChangeNotifier {
   static final PrinterService _instance = PrinterService._internal();
@@ -19,35 +21,67 @@ class PrinterService extends ChangeNotifier {
   final BlueThermalPrinter _bluetooth = BlueThermalPrinter.instance;
   final PrinterManager _printerManager = PrinterManager.instance;
 
-  PrinterConnectionType _connectionType = PrinterConnectionType.bluetooth;
-  BluetoothDevice? _selectedBtDevice;
-  PrinterDevice? _selectedUsbDevice;
-
+  List<AppPrinter> _printers = [];
   bool _isBtConnected = false;
   bool _isUsbConnected = false;
-  PaperSizeOption _paperSize = PaperSizeOption.mm58;
+  String? _currentlyConnectedBtAddress;
+  String? _currentlyConnectedUsbKey;
 
-  PrinterConnectionType get connectionType => _connectionType;
-  BluetoothDevice? get selectedBtDevice => _selectedBtDevice;
-  PrinterDevice? get selectedUsbDevice => _selectedUsbDevice;
+  List<AppPrinter> get printers => List.unmodifiable(_printers);
+  List<AppPrinter> get enabledPrinters => _printers.where((p) => p.isEnabled).toList();
 
-  bool get isConnected => _connectionType == PrinterConnectionType.usb ? _isUsbConnected : _isBtConnected;
+  bool get isConnected => _printers.any((p) => p.isEnabled);
+  int get activePrinterCount => _printers.where((p) => p.isEnabled).length;
+
   bool get isBtConnected => _isBtConnected;
   bool get isUsbConnected => _isUsbConnected;
-  PaperSizeOption get paperSize => _paperSize;
+
+  // Legacy compatibility getters
+  PrinterConnectionType get connectionType =>
+      _printers.isNotEmpty ? _printers.first.type : PrinterConnectionType.bluetooth;
+  PaperSizeOption get paperSize =>
+      _printers.isNotEmpty ? _printers.first.paperSize : PaperSizeOption.mm58;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedType = prefs.getString('printer_connection_type') ?? 'bluetooth';
-    _connectionType = savedType == 'usb' ? PrinterConnectionType.usb : PrinterConnectionType.bluetooth;
 
-    final savedBtAddress = prefs.getString('printer_address');
-    final savedUsbVendor = prefs.getString('printer_usb_vendor');
-    final savedUsbProduct = prefs.getString('printer_usb_product');
-    final is80mm = prefs.getBool('printer_is_80mm') ?? false;
-    _paperSize = is80mm ? PaperSizeOption.mm80 : PaperSizeOption.mm58;
+    // 1. Load multi-printer list
+    final savedPrintersJson = prefs.getStringList('app_printers_list');
+    if (savedPrintersJson != null && savedPrintersJson.isNotEmpty) {
+      _printers = savedPrintersJson
+          .map((item) {
+            try {
+              return AppPrinter.fromJson(jsonDecode(item) as Map<String, dynamic>);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<AppPrinter>()
+          .toList();
+    } else {
+      // 2. Migration: Check if legacy single printer settings exist
+      final savedType = prefs.getString('printer_connection_type');
+      final savedBtAddress = prefs.getString('printer_address');
+      final savedUsbVendor = prefs.getString('printer_usb_vendor');
+      final savedUsbProduct = prefs.getString('printer_usb_product');
+      final is80mm = prefs.getBool('printer_is_80mm') ?? false;
 
-    // Listen to Bluetooth state changes
+      if (savedType != null || savedBtAddress != null || savedUsbVendor != null) {
+        final legacyPrinter = AppPrinter(
+          name: 'Main Counter Printer',
+          type: savedType == 'usb' ? PrinterConnectionType.usb : PrinterConnectionType.bluetooth,
+          paperSize: is80mm ? PaperSizeOption.mm80 : PaperSizeOption.mm58,
+          role: PrinterRole.all,
+          btAddress: savedBtAddress,
+          usbVendorId: savedUsbVendor,
+          usbProductId: savedUsbProduct,
+        );
+        _printers = [legacyPrinter];
+        await _savePrinters();
+      }
+    }
+
+    // 3. Listen to Bluetooth hardware status changes
     _bluetooth.onStateChanged().listen((state) {
       final oldState = _isBtConnected;
       _isBtConnected = (state == BlueThermalPrinter.CONNECTED);
@@ -56,7 +90,7 @@ class PrinterService extends ChangeNotifier {
       }
     });
 
-    // Listen to USB state changes
+    // 4. Listen to USB hardware status changes
     _printerManager.stateUSB.listen((state) {
       final oldState = _isUsbConnected;
       _isUsbConnected = (state == USBStatus.connected);
@@ -66,61 +100,53 @@ class PrinterService extends ChangeNotifier {
     });
 
     await checkConnection();
+  }
 
-    // Auto-reconnect saved device
-    if (_connectionType == PrinterConnectionType.bluetooth && savedBtAddress != null && !_isBtConnected) {
-      final devices = await getBondedDevices();
-      for (final dev in devices) {
-        if (dev.address == savedBtAddress) {
-          _selectedBtDevice = dev;
-          await connectBluetooth(dev);
-          break;
-        }
-      }
-    } else if (_connectionType == PrinterConnectionType.usb && savedUsbVendor != null && !_isUsbConnected) {
-      final usbDevices = await getUsbDevices();
-      for (final dev in usbDevices) {
-        if (dev.vendorId == savedUsbVendor && dev.productId == savedUsbProduct) {
-          _selectedUsbDevice = dev;
-          await connectUsb(dev);
-          break;
-        }
-      }
+  Future<void> _savePrinters() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _printers.map((p) => jsonEncode(p.toJson())).toList();
+    await prefs.setStringList('app_printers_list', jsonList);
+    notifyListeners();
+  }
+
+  Future<void> addPrinter(AppPrinter printer) async {
+    _printers.add(printer);
+    await _savePrinters();
+  }
+
+  Future<void> updatePrinter(AppPrinter printer) async {
+    final index = _printers.indexWhere((p) => p.id == printer.id);
+    if (index != -1) {
+      _printers[index] = printer;
+      await _savePrinters();
+    }
+  }
+
+  Future<void> removePrinter(String id) async {
+    _printers.removeWhere((p) => p.id == id);
+    await _savePrinters();
+  }
+
+  Future<void> togglePrinter(String id, bool isEnabled) async {
+    final index = _printers.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      _printers[index].isEnabled = isEnabled;
+      await _savePrinters();
     }
   }
 
   Future<bool> checkConnection() async {
     try {
-      if (_connectionType == PrinterConnectionType.usb) {
-        return _isUsbConnected;
-      } else {
-        final connected = await _bluetooth.isConnected ?? false;
-        if (_isBtConnected != connected) {
-          _isBtConnected = connected;
-          notifyListeners();
-        }
-        return _isBtConnected;
-      }
+      final btConnected = await _bluetooth.isConnected ?? false;
+      _isBtConnected = btConnected;
+      notifyListeners();
+      return isConnected;
     } catch (_) {
       return isConnected;
     }
   }
 
-  Future<void> setConnectionType(PrinterConnectionType type) async {
-    _connectionType = type;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('printer_connection_type', type == PrinterConnectionType.usb ? 'usb' : 'bluetooth');
-  }
-
-  Future<void> setPaperSize(PaperSizeOption size) async {
-    _paperSize = size;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('printer_is_80mm', size == PaperSizeOption.mm80);
-  }
-
-  // --- BLUETOOTH METHODS ---
+  // --- HARDWARE DISCOVERY METHODS ---
 
   Future<List<BluetoothDevice>> getBondedDevices() async {
     try {
@@ -131,43 +157,6 @@ class PrinterService extends ChangeNotifier {
       return [];
     }
   }
-
-  Future<bool> connectBluetooth(BluetoothDevice device) async {
-    try {
-      if (_isBtConnected) {
-        await _bluetooth.disconnect();
-      }
-      await _bluetooth.connect(device);
-      _selectedBtDevice = device;
-      _isBtConnected = true;
-      _connectionType = PrinterConnectionType.bluetooth;
-      notifyListeners();
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('printer_connection_type', 'bluetooth');
-      if (device.address != null) {
-        await prefs.setString('printer_address', device.address!);
-      }
-      return true;
-    } catch (e) {
-      print('Failed to connect bluetooth printer: $e');
-      _isBtConnected = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<void> disconnectBluetooth() async {
-    try {
-      await _bluetooth.disconnect();
-      _isBtConnected = false;
-      notifyListeners();
-    } catch (e) {
-      print('Bluetooth disconnect error: $e');
-    }
-  }
-
-  // --- USB OTG METHODS ---
 
   Future<List<PrinterDevice>> getUsbDevices() async {
     final List<PrinterDevice> devices = [];
@@ -184,111 +173,218 @@ class PrinterService extends ChangeNotifier {
     return devices;
   }
 
-  Future<bool> connectUsb(PrinterDevice device) async {
+  // --- LAN / ETHERNET PRINTING DRIVER ---
+
+  /// Ping / Test connection to a LAN printer via raw TCP socket on port 9100
+  Future<bool> testLanConnection(String ip, int port) async {
+    Socket? socket;
     try {
+      socket = await Socket.connect(ip.trim(), port, timeout: const Duration(seconds: 3));
+      await socket.close();
+      return true;
+    } catch (e) {
+      print('LAN test connection failed ($ip:$port): $e');
+      try {
+        socket?.destroy();
+      } catch (_) {}
+      return false;
+    }
+  }
+
+  /// Send ESC/POS raw bytes over raw TCP socket
+  Future<bool> _printToLan(String ip, int port, List<int> bytes) async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(ip.trim(), port, timeout: const Duration(seconds: 4));
+      socket.add(bytes);
+      await socket.flush();
+      await Future.delayed(const Duration(milliseconds: 100));
+      await socket.close();
+      return true;
+    } catch (e) {
+      print('LAN print error ($ip:$port): $e');
+      try {
+        socket?.destroy();
+      } catch (_) {}
+      return false;
+    }
+  }
+
+  // --- BLUETOOTH DRIVER HELPERS ---
+
+  Future<bool> _ensureBluetoothConnected(String btAddress) async {
+    try {
+      final isNowConnected = await _bluetooth.isConnected ?? false;
+      if (isNowConnected && _currentlyConnectedBtAddress == btAddress) {
+        return true;
+      }
+      if (isNowConnected) {
+        await _bluetooth.disconnect();
+      }
+      final devices = await getBondedDevices();
+      final target = devices.firstWhere(
+        (d) => d.address == btAddress,
+        orElse: () => BluetoothDevice('', btAddress),
+      );
+      await _bluetooth.connect(target);
+      _currentlyConnectedBtAddress = btAddress;
+      _isBtConnected = true;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('Failed connecting bluetooth printer ($btAddress): $e');
+      return false;
+    }
+  }
+
+  // --- USB DRIVER HELPERS ---
+
+  Future<bool> _ensureUsbConnected(String vendorId, String productId) async {
+    try {
+      final currentKey = '$vendorId:$productId';
+      if (_isUsbConnected && _currentlyConnectedUsbKey == currentKey) {
+        return true;
+      }
       if (_isUsbConnected) {
         await _printerManager.disconnect(type: PrinterType.usb);
       }
-
       final result = await _printerManager.connect(
         type: PrinterType.usb,
         model: UsbPrinterInput(
-          name: device.name,
-          vendorId: device.vendorId,
-          productId: device.productId,
+          name: 'USB Printer',
+          vendorId: vendorId,
+          productId: productId,
         ),
       );
-
-      _selectedUsbDevice = device;
-      _isUsbConnected = result;
-      _connectionType = PrinterConnectionType.usb;
-      notifyListeners();
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('printer_connection_type', 'usb');
-      if (device.vendorId != null) await prefs.setString('printer_usb_vendor', device.vendorId!);
-      if (device.productId != null) await prefs.setString('printer_usb_product', device.productId!);
-
+      if (result) {
+        _currentlyConnectedUsbKey = currentKey;
+        _isUsbConnected = true;
+        notifyListeners();
+      }
       return result;
     } catch (e) {
-      print('USB connect error: $e');
-      _isUsbConnected = false;
-      notifyListeners();
+      print('Failed connecting USB printer ($vendorId:$productId): $e');
       return false;
     }
   }
 
-  Future<void> disconnectUsb() async {
-    try {
-      await _printerManager.disconnect(type: PrinterType.usb);
-      _isUsbConnected = false;
-      notifyListeners();
-    } catch (e) {
-      print('USB disconnect error: $e');
+  // --- INDIVIDUAL PRINTER DISPATCH ---
+
+  /// Send ESC/POS bytes to an individual printer based on its interface type
+  Future<bool> printToPrinter(AppPrinter printer, List<int> bytes) async {
+    if (!printer.isEnabled) return false;
+
+    switch (printer.type) {
+      case PrinterConnectionType.lan:
+        if (printer.ipAddress == null || printer.ipAddress!.trim().isEmpty) {
+          print('LAN printer has no IP configured: ${printer.name}');
+          return false;
+        }
+        return await _printToLan(printer.ipAddress!, printer.port, bytes);
+
+      case PrinterConnectionType.usb:
+        if (printer.usbVendorId == null || printer.usbProductId == null) {
+          print('USB printer missing vendor/product ID: ${printer.name}');
+          return false;
+        }
+        final connected = await _ensureUsbConnected(printer.usbVendorId!, printer.usbProductId!);
+        if (!connected) return false;
+        return await _printerManager.send(type: PrinterType.usb, bytes: bytes);
+
+      case PrinterConnectionType.bluetooth:
+        if (printer.btAddress == null || printer.btAddress!.trim().isEmpty) {
+          print('Bluetooth printer has no MAC address: ${printer.name}');
+          return false;
+        }
+        final connected = await _ensureBluetoothConnected(printer.btAddress!);
+        if (!connected) return false;
+        try {
+          await _bluetooth.writeBytes(Uint8List.fromList(bytes));
+          return true;
+        } catch (e) {
+          print('Error sending raw bytes to BT printer: $e');
+          return false;
+        }
     }
   }
 
-  // --- PRINTING ACTIONS (UNIFIED USB & BLUETOOTH) ---
+  // --- HIGH-LEVEL PRINTING WORKFLOWS ---
 
-  /// Print a formatted receipt for an Order
+  /// Print customer receipt to all enabled printers assigned to `receipt` or `all`
   Future<bool> printReceipt(OrderModel order) async {
-    if (!isConnected) {
-      print('Printer not connected');
+    final targets = _printers
+        .where((p) => p.isEnabled && (p.role == PrinterRole.receipt || p.role == PrinterRole.all))
+        .toList();
+
+    if (targets.isEmpty) {
+      print('No active receipt printers configured');
       return false;
     }
 
-    try {
-      if (_connectionType == PrinterConnectionType.usb) {
-        final bytes = await generateReceiptBytes(order);
-        return await _printerManager.send(type: PrinterType.usb, bytes: bytes);
-      } else {
-        return await _printReceiptBluetooth(order);
-      }
-    } catch (e) {
-      print('Error during receipt printing: $e');
-      return false;
+    bool anySuccess = false;
+    for (final printer in targets) {
+      final bytes = await generateReceiptBytes(order, printer.paperSize);
+      final ok = await printToPrinter(printer, bytes);
+      if (ok) anySuccess = true;
     }
+    return anySuccess;
   }
 
-  /// Print Day-End Z-Report / Daily Sales Summary
+  /// Print Kitchen Order Ticket (KOT) to all enabled printers assigned to `kitchen` or `all`
+  Future<bool> printKitchenTicket(OrderModel order) async {
+    final targets = _printers
+        .where((p) => p.isEnabled && (p.role == PrinterRole.kitchen || p.role == PrinterRole.all))
+        .toList();
+
+    if (targets.isEmpty) {
+      return false;
+    }
+
+    bool anySuccess = false;
+    for (final printer in targets) {
+      final bytes = await generateKitchenTicketBytes(order, printer.paperSize);
+      final ok = await printToPrinter(printer, bytes);
+      if (ok) anySuccess = true;
+    }
+    return anySuccess;
+  }
+
+  /// Print Day-End Z-Report / Daily Sales Summary to all enabled receipt printers
   Future<bool> printDailySalesSummary(DailySalesSummary summary) async {
-    if (!isConnected) return false;
+    final targets = _printers
+        .where((p) => p.isEnabled && (p.role == PrinterRole.receipt || p.role == PrinterRole.all))
+        .toList();
 
-    try {
-      if (_connectionType == PrinterConnectionType.usb) {
-        final bytes = await generateDailySummaryBytes(summary);
-        return await _printerManager.send(type: PrinterType.usb, bytes: bytes);
-      } else {
-        return await _printDailySummaryBluetooth(summary);
-      }
-    } catch (e) {
-      print('Print sales summary error: $e');
-      return false;
+    if (targets.isEmpty) return false;
+
+    bool anySuccess = false;
+    for (final printer in targets) {
+      final bytes = await generateDailySummaryBytes(summary, printer.paperSize);
+      final ok = await printToPrinter(printer, bytes);
+      if (ok) anySuccess = true;
     }
+    return anySuccess;
   }
 
-  /// Print a quick test receipt
+  /// Print a single test receipt for a specific printer
+  Future<bool> testPrinter(AppPrinter printer) async {
+    final bytes = await generateTestReceiptBytes(printer);
+    return await printToPrinter(printer, bytes);
+  }
+
+  /// Legacy test print (tests first enabled printer)
   Future<bool> printTestReceipt() async {
-    if (!isConnected) return false;
-
-    try {
-      if (_connectionType == PrinterConnectionType.usb) {
-        final bytes = await generateTestReceiptBytes();
-        return await _printerManager.send(type: PrinterType.usb, bytes: bytes);
-      } else {
-        return await _printTestReceiptBluetooth();
-      }
-    } catch (e) {
-      print('Test print error: $e');
-      return false;
-    }
+    if (_printers.isEmpty) return false;
+    final printer = _printers.firstWhere((p) => p.isEnabled, orElse: () => _printers.first);
+    return await testPrinter(printer);
   }
 
-  // --- ESC/POS BYTE GENERATORS (FOR USB & DIRECT RAW STREAMING) ---
+  // --- ESC/POS BYTE GENERATORS ---
 
-  Future<List<int>> generateReceiptBytes(OrderModel order) async {
+  /// Generate customer receipt bytes matching printer paper size
+  Future<List<int>> generateReceiptBytes(OrderModel order, PaperSizeOption sizeOption) async {
     final profile = await CapabilityProfile.load();
-    final is80mm = _paperSize == PaperSizeOption.mm80;
+    final is80mm = sizeOption == PaperSizeOption.mm80;
     final generator = Generator(is80mm ? PaperSize.mm80 : PaperSize.mm58, profile);
     List<int> bytes = [];
 
@@ -298,7 +394,6 @@ class PrinterService extends ChangeNotifier {
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
     final formattedDate = dateFormat.format(order.createdAt.toLocal());
 
-    // 1. Restaurant Header
     bytes += generator.text(
       restaurantName,
       styles: const PosStyles(
@@ -308,128 +403,210 @@ class PrinterService extends ChangeNotifier {
         bold: true,
       ),
     );
+
     if (restaurantAddress.trim().isNotEmpty) {
-      bytes += generator.text(restaurantAddress, styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text(
+        restaurantAddress,
+        styles: const PosStyles(align: PosAlign.center),
+      );
     }
     if (restaurantPhone.trim().isNotEmpty) {
-      bytes += generator.text('Ph: $restaurantPhone', styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text(
+        'Tel: $restaurantPhone',
+        styles: const PosStyles(align: PosAlign.center),
+      );
     }
+
     bytes += generator.hr(ch: '=');
-
-    // 2. Order Metadata
-    String paymentBadge = order.paymentMethod.toUpperCase();
-    if (order.paymentMethod == 'split') {
-      paymentBadge = 'SPLIT';
-    } else if (order.paymentMethod == 'gpay') {
-      paymentBadge = 'GPAY';
-    } else {
-      paymentBadge = 'CASH';
-    }
-
-    bytes += generator.row([
-      PosColumn(text: 'Invoice: #${order.displayInvoiceNumber}', width: 8, styles: const PosStyles(bold: true)),
-      PosColumn(text: paymentBadge, width: 4, styles: const PosStyles(align: PosAlign.right, bold: true)),
-    ]);
-    bytes += generator.text('Date: $formattedDate');
+    bytes += generator.text(
+      'TAX INVOICE / BILL',
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
     bytes += generator.hr(ch: '-');
 
-    // 3. Items Table
+    if (order.invoiceNumber != null && order.invoiceNumber!.isNotEmpty) {
+      bytes += generator.row([
+        PosColumn(text: 'Invoice No:', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(text: order.invoiceNumber!, width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+      ]);
+    }
+    bytes += generator.row([
+      PosColumn(text: 'Date & Time:', width: 5),
+      PosColumn(text: formattedDate, width: 7, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Payment Mode:', width: 6),
+      PosColumn(text: order.paymentMethod.toUpperCase(), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+    ]);
+
+    bytes += generator.hr(ch: '-');
+
+    // Header row
     if (is80mm) {
       bytes += generator.row([
-        PosColumn(text: 'ITEM', width: 5, styles: const PosStyles(bold: true)),
-        PosColumn(text: 'QTY', width: 2, styles: const PosStyles(align: PosAlign.center, bold: true)),
-        PosColumn(text: 'PRICE', width: 2, styles: const PosStyles(align: PosAlign.right, bold: true)),
-        PosColumn(text: 'TOTAL', width: 3, styles: const PosStyles(align: PosAlign.right, bold: true)),
+        PosColumn(text: 'Item Name', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'Qty', width: 2, styles: const PosStyles(align: PosAlign.center, bold: true)),
+        PosColumn(text: 'Rate', width: 2, styles: const PosStyles(align: PosAlign.right, bold: true)),
+        PosColumn(text: 'Total', width: 2, styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.hr(ch: '-');
-
-      for (final item in order.items) {
-        final lineTotal = (item.price * item.qty).toStringAsFixed(2);
-        final unitPrice = item.price.toStringAsFixed(2);
-        String name = item.name;
-        if (name.length > 18) name = '${name.substring(0, 15)}...';
-
-        bytes += generator.row([
-          PosColumn(text: name, width: 5),
-          PosColumn(text: '${item.qty}', width: 2, styles: const PosStyles(align: PosAlign.center)),
-          PosColumn(text: unitPrice, width: 2, styles: const PosStyles(align: PosAlign.right)),
-          PosColumn(text: lineTotal, width: 3, styles: const PosStyles(align: PosAlign.right)),
-        ]);
-      }
     } else {
       bytes += generator.row([
-        PosColumn(text: 'ITEM', width: 6, styles: const PosStyles(bold: true)),
-        PosColumn(text: 'QTY', width: 2, styles: const PosStyles(align: PosAlign.center, bold: true)),
-        PosColumn(text: 'TOTAL', width: 4, styles: const PosStyles(align: PosAlign.right, bold: true)),
+        PosColumn(text: 'Item Name', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(text: 'Qty', width: 2, styles: const PosStyles(align: PosAlign.center, bold: true)),
+        PosColumn(text: 'Amt', width: 4, styles: const PosStyles(align: PosAlign.right, bold: true)),
       ]);
-      bytes += generator.hr(ch: '-');
+    }
 
-      for (final item in order.items) {
-        final lineTotal = (item.price * item.qty).toStringAsFixed(2);
-        final unitPrice = item.price.toStringAsFixed(2);
-        String name = item.name;
-        if (name.length > 20) name = '${name.substring(0, 17)}...';
+    bytes += generator.hr(ch: '-');
 
-        bytes += generator.text(name);
+    // Items
+    for (final item in order.items) {
+      final itemTotal = (item.price * item.qty).toStringAsFixed(2);
+      if (is80mm) {
         bytes += generator.row([
-          PosColumn(text: '  ${item.qty} x Rs.$unitPrice', width: 7),
-          PosColumn(text: 'Rs.$lineTotal', width: 5, styles: const PosStyles(align: PosAlign.right)),
+          PosColumn(text: item.name, width: 6),
+          PosColumn(text: item.qty.toString(), width: 2, styles: const PosStyles(align: PosAlign.center)),
+          PosColumn(text: item.price.toStringAsFixed(2), width: 2, styles: const PosStyles(align: PosAlign.right)),
+          PosColumn(text: itemTotal, width: 2, styles: const PosStyles(align: PosAlign.right)),
+        ]);
+      } else {
+        bytes += generator.row([
+          PosColumn(text: item.name, width: 6),
+          PosColumn(text: item.qty.toString(), width: 2, styles: const PosStyles(align: PosAlign.center)),
+          PosColumn(text: itemTotal, width: 4, styles: const PosStyles(align: PosAlign.right)),
         ]);
       }
     }
 
-    // 4. Totals
     bytes += generator.hr(ch: '=');
+
+    // Totals
     bytes += generator.row([
-      PosColumn(text: 'TOTAL AMOUNT:', width: 7, styles: const PosStyles(height: PosTextSize.size1, width: PosTextSize.size1, bold: true)),
-      PosColumn(text: 'Rs. ${order.total.toStringAsFixed(2)}', width: 5, styles: const PosStyles(align: PosAlign.right, height: PosTextSize.size1, width: PosTextSize.size1, bold: true)),
+      PosColumn(text: 'TOTAL AMOUNT:', width: 6, styles: const PosStyles(bold: true, height: PosTextSize.size1)),
+      PosColumn(
+        text: 'Rs. ${order.total.toStringAsFixed(2)}',
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2, width: PosTextSize.size2),
+      ),
     ]);
 
     if (order.paymentMethod == 'split') {
+      bytes += generator.hr(ch: '-');
       bytes += generator.row([
-        PosColumn(text: '  Cash Portion:', width: 6),
+        PosColumn(text: 'Cash Paid:', width: 6),
         PosColumn(text: 'Rs. ${order.cashAmount.toStringAsFixed(2)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
       ]);
       bytes += generator.row([
-        PosColumn(text: '  GPay Portion:', width: 6),
+        PosColumn(text: 'GPay/UPI Paid:', width: 6),
         PosColumn(text: 'Rs. ${order.gpayAmount.toStringAsFixed(2)}', width: 6, styles: const PosStyles(align: PosAlign.right)),
       ]);
-    } else {
-      bytes += generator.row([
-        PosColumn(text: 'Payment Mode:', width: 6),
-        PosColumn(text: paymentBadge, width: 6, styles: const PosStyles(align: PosAlign.right)),
-      ]);
     }
-    bytes += generator.hr(ch: '-');
 
-    // 5. Footer & Margin
-    bytes += generator.text('Thank you for dining with us!', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('Please visit again', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.feed(7);
+    if (order.notes != null && order.notes!.trim().isNotEmpty) {
+      bytes += generator.hr(ch: '-');
+      bytes += generator.text('Notes: ${order.notes}', styles: const PosStyles(align: PosAlign.left));
+    }
+
+    bytes += generator.hr(ch: '=');
+    bytes += generator.text('Thank you! Visit again.', styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.feed(4);
     bytes += generator.cut();
 
     return bytes;
   }
 
-  Future<List<int>> generateDailySummaryBytes(DailySalesSummary summary) async {
+  /// Generate Kitchen Order Ticket (KOT) bytes focusing on items & notes
+  Future<List<int>> generateKitchenTicketBytes(OrderModel order, PaperSizeOption sizeOption) async {
     final profile = await CapabilityProfile.load();
-    final is80mm = _paperSize == PaperSizeOption.mm80;
+    final is80mm = sizeOption == PaperSizeOption.mm80;
+    final generator = Generator(is80mm ? PaperSize.mm80 : PaperSize.mm58, profile);
+    List<int> bytes = [];
+
+    final dateFormat = DateFormat('dd MMM, hh:mm a');
+    final formattedDate = dateFormat.format(order.createdAt.toLocal());
+
+    bytes += generator.text(
+      '*** KITCHEN ORDER TICKET ***',
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size2,
+        width: PosTextSize.size2,
+        bold: true,
+      ),
+    );
+
+    bytes += generator.hr(ch: '=');
+
+    if (order.invoiceNumber != null && order.invoiceNumber!.isNotEmpty) {
+      bytes += generator.text(
+        'TOKEN / BILL: ${order.invoiceNumber}',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+    }
+
+    bytes += generator.text('Time: $formattedDate', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.hr(ch: '-');
+
+    bytes += generator.row([
+      PosColumn(text: 'ITEM', width: 8, styles: const PosStyles(bold: true, height: PosTextSize.size1)),
+      PosColumn(text: 'QTY', width: 4, styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size1)),
+    ]);
+    bytes += generator.hr(ch: '-');
+
+    for (final item in order.items) {
+      bytes += generator.row([
+        PosColumn(
+          text: item.name,
+          width: 8,
+          styles: const PosStyles(bold: true, height: PosTextSize.size1),
+        ),
+        PosColumn(
+          text: 'x ${item.qty}',
+          width: 4,
+          styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2, width: PosTextSize.size2),
+        ),
+      ]);
+    }
+
+    if (order.notes != null && order.notes!.trim().isNotEmpty) {
+      bytes += generator.hr(ch: '-');
+      bytes += generator.text('SPECIAL NOTES: ${order.notes}', styles: const PosStyles(bold: true));
+    }
+
+    bytes += generator.hr(ch: '=');
+    bytes += generator.feed(4);
+    bytes += generator.cut();
+
+    return bytes;
+  }
+
+  /// Generate Day-End Z-Report / Daily Sales Summary bytes
+  Future<List<int>> generateDailySummaryBytes(DailySalesSummary summary, PaperSizeOption sizeOption) async {
+    final profile = await CapabilityProfile.load();
+    final is80mm = sizeOption == PaperSizeOption.mm80;
     final generator = Generator(is80mm ? PaperSize.mm80 : PaperSize.mm58, profile);
     List<int> bytes = [];
 
     final restaurantName = await SupabaseConfig.getRestaurantName();
-    final dateFormat = DateFormat('dd MMMM yyyy');
-    final timeFormat = DateFormat('hh:mm a');
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final formattedDate = dateFormat.format(summary.date);
 
-    bytes += generator.text(restaurantName, styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2, bold: true));
-    bytes += generator.text('DAILY SALES SUMMARY REPORT', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('Date: ${dateFormat.format(summary.date)}', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('Generated: ${timeFormat.format(DateTime.now())}', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(
+      restaurantName,
+      styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2, bold: true),
+    );
+    bytes += generator.text('DAILY SALES SUMMARY (Z-REPORT)', styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('Date: $formattedDate', styles: const PosStyles(align: PosAlign.center));
     bytes += generator.hr(ch: '=');
 
     bytes += generator.row([
-      PosColumn(text: 'Total Customers Today:', width: 8, styles: const PosStyles(bold: true)),
-      PosColumn(text: '${summary.totalOrders}', width: 4, styles: const PosStyles(align: PosAlign.right, bold: true)),
+      PosColumn(text: 'Total Completed Orders:', width: 7, styles: const PosStyles(bold: true)),
+      PosColumn(text: '${summary.totalOrders}', width: 5, styles: const PosStyles(align: PosAlign.right, bold: true)),
     ]);
     bytes += generator.hr(ch: '-');
 
@@ -449,254 +626,49 @@ class PrinterService extends ChangeNotifier {
     ]);
     bytes += generator.hr(ch: '=');
 
-    bytes += generator.text('Thank you, visit again!', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.feed(7);
+    bytes += generator.feed(4);
     bytes += generator.cut();
 
     return bytes;
   }
 
-  Future<List<int>> generateTestReceiptBytes() async {
+  /// Generate Test Print bytes
+  Future<List<int>> generateTestReceiptBytes(AppPrinter printer) async {
     final profile = await CapabilityProfile.load();
-    final is80mm = _paperSize == PaperSizeOption.mm80;
+    final is80mm = printer.paperSize == PaperSizeOption.mm80;
     final generator = Generator(is80mm ? PaperSize.mm80 : PaperSize.mm58, profile);
     List<int> bytes = [];
 
-    bytes += generator.text('TEST PRINT SUCCESSFUL', styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2, bold: true));
+    bytes += generator.text(
+      'TEST PRINT SUCCESSFUL',
+      styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2, width: PosTextSize.size2, bold: true),
+    );
     bytes += generator.hr(ch: '=');
     bytes += generator.row([
-      PosColumn(text: 'Printer Status:', width: 7, styles: const PosStyles(bold: true)),
-      PosColumn(text: 'ONLINE (USB)', width: 5, styles: const PosStyles(align: PosAlign.right, bold: true)),
+      PosColumn(text: 'Printer Name:', width: 5, styles: const PosStyles(bold: true)),
+      PosColumn(text: printer.name, width: 7, styles: const PosStyles(align: PosAlign.right, bold: true)),
     ]);
     bytes += generator.row([
-      PosColumn(text: 'Paper Mode:', width: 6),
+      PosColumn(text: 'Connection:', width: 5),
+      PosColumn(text: printer.type.name.toUpperCase(), width: 7, styles: const PosStyles(align: PosAlign.right, bold: true)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Target Details:', width: 5),
+      PosColumn(text: printer.connectionSummary, width: 7, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Paper Size:', width: 6),
       PosColumn(text: is80mm ? '80mm (3 Inch)' : '58mm (2 Inch)', width: 6, styles: const PosStyles(align: PosAlign.right)),
     ]);
+    bytes += generator.row([
+      PosColumn(text: 'Assigned Role:', width: 5),
+      PosColumn(text: printer.role.name.toUpperCase(), width: 7, styles: const PosStyles(align: PosAlign.right)),
+    ]);
     bytes += generator.hr(ch: '-');
-    bytes += generator.text('Neyco POS System Ready!', styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.feed(7);
+    bytes += generator.text('POSWare Thermal Printing Ready!', styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.feed(4);
     bytes += generator.cut();
 
     return bytes;
   }
-
-  // --- BLUETOOTH PRINT IMPLEMENTATIONS ---
-
-  Future<void> _pacingDelay([int ms = 80]) => Future.delayed(Duration(milliseconds: ms));
-
-  Future<bool> _printReceiptBluetooth(OrderModel order) async {
-    final restaurantName = await SupabaseConfig.getRestaurantName();
-    final restaurantAddress = await SupabaseConfig.getRestaurantAddress();
-    final restaurantPhone = await SupabaseConfig.getRestaurantPhone();
-    final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
-    final formattedDate = dateFormat.format(order.createdAt.toLocal());
-    final is80mm = _paperSize == PaperSizeOption.mm80;
-    final maxChars = is80mm ? 42 : 32;
-
-    await _bluetooth.printCustom(restaurantName, 2, 1);
-    await _pacingDelay();
-
-    if (restaurantAddress.trim().isNotEmpty) {
-      await _bluetooth.printCustom(restaurantAddress, 0, 1);
-      await _pacingDelay();
-    }
-    if (restaurantPhone.trim().isNotEmpty) {
-      await _bluetooth.printCustom('Ph: $restaurantPhone', 0, 1);
-      await _pacingDelay();
-    }
-    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    await _pacingDelay();
-
-    String paymentBadge = order.paymentMethod.toUpperCase();
-    if (order.paymentMethod == 'split') {
-      paymentBadge = 'SPLIT';
-    } else if (order.paymentMethod == 'gpay') {
-      paymentBadge = 'GPAY';
-    } else {
-      paymentBadge = 'CASH';
-    }
-
-    await _bluetooth.printLeftRight(
-      'Invoice: #${order.displayInvoiceNumber}',
-      paymentBadge,
-      0,
-    );
-    await _pacingDelay();
-
-    await _bluetooth.printCustom('Date: $formattedDate', 0, 0);
-    await _pacingDelay();
-
-    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-    await _pacingDelay();
-
-    if (is80mm) {
-      final headerItem = 'ITEM'.padRight(18);
-      final headerQty = 'QTY'.padLeft(4);
-      final headerPrice = 'PRICE'.padLeft(8);
-      final headerTotal = 'TOTAL'.padLeft(9);
-      await _bluetooth.printCustom('$headerItem $headerQty $headerPrice $headerTotal', 0, 0);
-      await _pacingDelay();
-
-      await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-      await _pacingDelay();
-
-      for (final item in order.items) {
-        final lineTotal = (item.price * item.qty).toStringAsFixed(2);
-        final unitPrice = item.price.toStringAsFixed(2);
-
-        String itemName = item.name.trim();
-        if (itemName.length > 18) {
-          itemName = '${itemName.substring(0, 15)}...';
-        }
-
-        final colItem = itemName.padRight(18);
-        final colQty = '${item.qty}'.padLeft(4);
-        final colPrice = unitPrice.padLeft(8);
-        final colTotal = lineTotal.padLeft(9);
-
-        await _bluetooth.printCustom('$colItem $colQty $colPrice $colTotal', 0, 0);
-        await _pacingDelay();
-      }
-    } else {
-      await _bluetooth.printCustom('ITEM            QTY     TOTAL', 0, 0);
-      await _pacingDelay();
-
-      await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-      await _pacingDelay();
-
-      for (final item in order.items) {
-        final lineTotal = (item.price * item.qty).toStringAsFixed(2);
-        final unitPrice = item.price.toStringAsFixed(2);
-
-        String itemName = item.name.trim();
-        if (itemName.length > 28) {
-          itemName = '${itemName.substring(0, 25)}...';
-        }
-        await _bluetooth.printCustom(itemName, 0, 0);
-        await _pacingDelay();
-
-        await _bluetooth.printLeftRight('  ${item.qty} x Rs.$unitPrice', 'Rs.$lineTotal', 0);
-        await _pacingDelay();
-      }
-    }
-
-    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    await _pacingDelay();
-
-    final totalLabel = 'TOTAL AMOUNT:';
-    final totalVal = 'Rs. ${order.total.toStringAsFixed(2)}';
-    if (is80mm) {
-      final spaces = maxChars - totalLabel.length - totalVal.length;
-      final fullLine = totalLabel + (spaces > 0 ? ' ' * spaces : ' ') + totalVal;
-      await _bluetooth.printCustom(fullLine, 1, 0);
-    } else {
-      await _bluetooth.printLeftRight(totalLabel, totalVal, 1);
-    }
-    await _pacingDelay();
-
-    if (order.paymentMethod == 'split') {
-      await _bluetooth.printLeftRight('  Cash Amount:', 'Rs. ${order.cashAmount.toStringAsFixed(2)}', 0);
-      await _pacingDelay();
-      await _bluetooth.printLeftRight('  GPay Amount:', 'Rs. ${order.gpayAmount.toStringAsFixed(2)}', 0);
-      await _pacingDelay();
-    } else {
-      await _bluetooth.printLeftRight(
-        'Payment Mode:',
-        paymentBadge,
-        0,
-      );
-      await _pacingDelay();
-    }
-    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-    await _pacingDelay();
-
-    await _bluetooth.printCustom('Thank you for dining with us!', 1, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom('Please visit again', 0, 1);
-    await _pacingDelay();
-
-    for (int i = 0; i < 4; i++) {
-      await _bluetooth.printNewLine();
-      await _pacingDelay(50);
-    }
-    await _bluetooth.paperCut();
-
-    return true;
-  }
-
-  Future<bool> _printDailySummaryBluetooth(DailySalesSummary summary) async {
-    final restaurantName = await SupabaseConfig.getRestaurantName();
-    final dateFormat = DateFormat('dd MMMM yyyy');
-    final timeFormat = DateFormat('hh:mm a');
-    final is80mm = _paperSize == PaperSizeOption.mm80;
-    final maxChars = is80mm ? 42 : 32;
-
-    await _bluetooth.printCustom(restaurantName, 2, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom('DAILY SALES SUMMARY REPORT', 1, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom('Date: ${dateFormat.format(summary.date)}', 0, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom('Generated: ${timeFormat.format(DateTime.now())}', 0, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    await _pacingDelay();
-
-    await _bluetooth.printLeftRight('Total Customers Today:', '${summary.totalOrders}', 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-    await _pacingDelay();
-
-    await _bluetooth.printLeftRight('CASH RECEIVED:', 'Rs. ${summary.cashTotal.toStringAsFixed(2)}', 1);
-    await _pacingDelay();
-    await _bluetooth.printLeftRight('GPAY (UPI) TOTAL:', 'Rs. ${summary.gpayTotal.toStringAsFixed(2)}', 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    await _pacingDelay();
-
-    await _bluetooth.printLeftRight('GRAND TOTAL SALES:', 'Rs. ${summary.totalSales.toStringAsFixed(2)}', 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    await _pacingDelay();
-
-    await _bluetooth.printCustom('Thank you, visit again!', 1, 1);
-    await _pacingDelay();
-
-    for (int i = 0; i < 4; i++) {
-      await _bluetooth.printNewLine();
-      await _pacingDelay(50);
-    }
-    await _bluetooth.paperCut();
-
-    return true;
-  }
-
-  Future<bool> _printTestReceiptBluetooth() async {
-    final is80mm = _paperSize == PaperSizeOption.mm80;
-    final maxChars = is80mm ? 42 : 32;
-    await _bluetooth.printCustom('TEST PRINT SUCCESSFUL', 2, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom(_getDivider(maxChars, '='), 0, 1);
-    await _pacingDelay();
-    await _bluetooth.printLeftRight('Printer Status:', 'ONLINE (BT)', 1);
-    await _pacingDelay();
-    await _bluetooth.printLeftRight('Paper Mode:', is80mm ? '80mm (42 Col)' : '58mm (32 Col)', 0);
-    await _pacingDelay();
-    await _bluetooth.printCustom(_getDivider(maxChars, '-'), 0, 1);
-    await _pacingDelay();
-    await _bluetooth.printCustom('Neyco POS System Ready!', 1, 1);
-    await _pacingDelay();
-
-    for (int i = 0; i < 4; i++) {
-      await _bluetooth.printNewLine();
-      await _pacingDelay(50);
-    }
-    await _bluetooth.paperCut();
-    return true;
-  }
-
-  String _getDivider(int length, String char) {
-    return List.filled(length, char).join('');
-  }
 }
-

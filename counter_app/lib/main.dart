@@ -28,7 +28,7 @@ class NeycoBillingApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BillingProvider()..init()),
       ],
       child: MaterialApp(
-        title: 'NEYKO POS',
+        title: 'POSWare',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
         home: const SplashScreen(),
